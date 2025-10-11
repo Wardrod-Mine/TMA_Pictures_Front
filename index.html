@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#000000" />
+  <title>Магазин: ТМА и боты</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.__API_URL = 'https://tmashop.ru/';
+  </script>
+  <script type="module" src="./app.js?v=13"></script>
+
+  <style>
+    :root{
+      --bg: var(--tg-theme-bg-color, #0e1117);
+      --text: var(--tg-theme-text-color, #e6edf3);
+      --hint: var(--tg-theme-hint-color, #8b949e);
+      --link: var(--tg-theme-link-color, #4495ff);
+      --btn: var(--tg-theme-button-color, #2ea043);
+      --btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --card: var(--tg-theme-secondary-bg-color, #161b22);
+      --sep: var(--tg-theme-section-separator-color, rgba(255,255,255,.08));
+    }
+    body{ background: var(--bg); color: var(--text); }
+    .surface{ background: var(--bg); color: var(--text); }
+    .card{ background: var(--card); border: 1px solid var(--sep); }
+    .muted{ color: var(--hint); }
+    .link{ color: var(--link); }
+    .btn{ background: var(--btn); color: var(--btn-text); }
+    .img-cover{ aspect-ratio:16/10; object-fit:contain; }
+    .fade-in{ animation: fade .25s ease-out; }
+    @keyframes fade{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+    .view-enter { animation: fade .22s ease-out forwards; }
+    .view-leave { animation: fadeOut .18s ease-in forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(4px)} }
+    .card-appear { opacity:0; transform:translateY(8px); animation:cardIn .35s ease-out forwards; animation-delay:var(--delay,0ms);}
+    @keyframes cardIn { to{opacity:1; transform:none;} }
+    .modal{ opacity:0; pointer-events:none; transition: opacity .2s ease; }
+    .modal.show{ opacity:1; pointer-events:auto; }
+    .modal-backdrop{ background:rgba(0,0,0,.5); opacity:.001; transition:opacity .2s ease; }
+    .modal.show .modal-backdrop{ opacity:1; }
+    .modal-panel{ transform:translateY(6px); opacity:0; transition:transform .2s ease, opacity .2s ease; }
+    .modal.show .modal-panel{ transform:translateY(0); opacity:1; }
+  </style>
+</head>
+
+<body class="surface min-h-screen">
+  <header class="px-4 py-3 border-b" style="border-color:var(--sep)">
+    <div class="max-w-5xl mx-auto flex items-center gap-3">
+      <button id="backBtn" class="btn rounded-lg px-3 py-2 text-sm hidden">Назад</button>
+      <h1 class="text-lg font-semibold">Магазин решений</h1>
+      <span class="ml-auto text-sm muted" id="usernameSlot"></span>
+      <button id="cartBtn" class="rounded-lg px-3 py-2 text-sm border hidden" style="border-color:var(--sep)">
+        Заявка <span id="cartCount" class="ml-1">0</span>
+      </button>
+      <button id="adminBtn" class="rounded-lg px-3 py-2 text-sm border hidden" style="border-color:var(--sep)">Admin</button>
+    </div>
+  </header>
+
+  <main id="listView" class="max-w-5xl mx-auto p-4 fade-in">
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+      <p class="text-sm muted">Выберите продукт: клик по картинке открывает подробности.</p>
+      <button id="consultBtnMain" class="btn rounded-lg px-4 py-2 text-sm ml-auto">
+        Получить консультацию
+      </button>
+    </div>
+    <section id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></section>
+  </main>
+
+  <main id="detailView" class="max-w-3xl mx-auto p-4 hidden fade-in">
+    <nav class="text-sm mb-3">
+      <a href="#/" class="link">← Ко всем продуктам</a>
+    </nav>
+    <article class="card rounded-xl overflow-hidden">
+      <img id="detailImg" src="" alt="" class="w-full img-cover">
+      <div class="p-4 space-y-3">
+        <h2 id="detailTitle" class="text-xl font-semibold"></h2>
+        <p id="detailShort" class="muted"></p>
+        <div id="detailBullets" class="space-y-2"></div>
+        <div id="detailLong" class="text-sm leading-relaxed space-y-2"></div>
+        <div class="pt-2 flex flex-wrap gap-2">
+          <button id="buyBtn" type="button" class="btn rounded-lg px-4 py-2 text-sm">Отправить заявку</button>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <!-- Modal: Консультация -->
+  <div id="consultModal" class="modal fixed inset-0 z-50 hidden">
+    <div class="modal-backdrop absolute inset-0"></div>
+    <div class="modal-panel relative max-w-md mx-auto mt-16 card rounded-xl overflow-hidden">
+      <div class="p-4 border-b" style="border-color:var(--sep)">
+        <h3 class="text-lg font-semibold">Запрос консультации</h3>
+        <p class="text-xs muted" id="consultProductTitle"></p>
+      </div>
+      <form id="consultForm" class="p-4 space-y-3">
+        <label class="block text-sm">
+          <span class="muted">Ваше имя (необязательно)</span>
+          <input id="cName" type="text" class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+                 style="border-color:var(--sep)" autocomplete="name" />
+        </label>
+        <label class="block text-sm">
+          <span class="muted">Контакт (телефон, @username или e-mail) *</span>
+          <input id="cContact" type="text" required class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+                 style="border-color:var(--sep)" placeholder="+79991234567 / @user / mail@example.com" />
+        </label>
+        <label class="block text-sm">
+          <span class="muted">Комментарий (вопрос)</span>
+          <textarea id="cMsg" rows="3" class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+            style="border-color:var(--sep)" placeholder="Кратко опишите задачу"></textarea>
+        </label>
+        <div class="flex gap-2 pt-2">
+          <button type="button" id="consultCancel" class="rounded-lg px-4 py-2 text-sm border" style="border-color:var(--sep)">Отмена</button>
+          <button type="submit" id="consultSubmit" class="btn rounded-lg px-4 py-2 text-sm">Отправить</button>
+        </div>
+        <p class="text-xs muted">Данные отправятся боту через безопасный <code>sendData</code>.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Заявка -->
+  <div id="requestModal" class="modal fixed inset-0 z-50 hidden">
+    <div class="modal-backdrop absolute inset-0"></div>
+    <div class="modal-panel relative max-w-md mx-auto mt-16 card rounded-xl overflow-hidden">
+      <div class="p-4 border-b" style="border-color:var(--sep)">
+        <h3 class="text-lg font-semibold">Отправить заявку</h3>
+        <p class="text-xs muted" id="requestProductTitle"></p>
+      </div>
+        <form id="requestForm" class="p-4 space-y-3">
+          <label class="block text-sm">
+            <span class="muted">Имя *</span>
+            <input id="rName" type="text" required
+              class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+              style="border-color:var(--sep)" placeholder="Ваше имя">
+          </label>
+
+          <label class="block text-sm">
+            <span class="muted">Телефон *</span>
+            <input id="rPhone" type="tel" required
+              class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+              style="border-color:var(--sep)"
+              placeholder="+7 999 123-45-67">
+          </label>
+
+
+          <label class="block text-sm">
+            <span class="muted">Комментарий</span>
+            <textarea id="rComment" rows="3"
+               class="w-full mt-1 rounded-lg bg-transparent border px-3 py-2"
+               style="border-color:var(--sep)"
+               placeholder="Например: Удобный способ и время или интересующий вопрос"></textarea>
+          </label>
+
+          <div class="flex gap-2 pt-2">
+            <button type="button" id="requestCancel"
+              class="rounded-lg px-4 py-2 text-sm border" style="border-color:var(--sep)">Отмена</button>
+            <button type="submit" id="requestSubmit" class="btn rounded-lg px-4 py-2 text-sm">Отправить</button>
+          </div>
+
+          <p class="text-xs muted">Данные отправятся боту через безопасный <code>sendData</code>.</p>
+        </form>
+
+    </div>
+  </div>
+
+  <div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-4 px-4 py-2 rounded-lg card text-sm hidden"></div>
+</body>
+</html>
