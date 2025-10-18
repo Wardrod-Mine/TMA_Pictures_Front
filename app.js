@@ -489,8 +489,9 @@ function ensureAdminButton(){
   if (addCardBtn) addCardBtn.classList.add('hidden');
   (async ()=>{
     try{
-      const init_data = window.Telegram?.WebApp?.initData || '';
-      const res = await fetch(new URL('/check_admin', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data }) });
+  const init_data = window.Telegram?.WebApp?.initData || '';
+  const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
+  const res = await fetch(new URL('/check_admin', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data, init_data_unsafe }) });
       const j = await res.json().catch(()=>({ ok:false }));
       if (j.ok && j.isAdmin) { 
         adminBtn.classList.remove('hidden'); adminBtn.onclick = () => { location.hash = '#/admin'; };
