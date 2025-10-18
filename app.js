@@ -456,12 +456,6 @@ function showList(){
 }
 
 // ========= РОУТЕР/СТАРТ ================
-function router(){
-  const hash = location.hash || '#/';
-  if (hash.startsWith('#/product/')) showDetail(hash.replace('#/product/',''));
-  else showList();
-}
-
 function getStartParam(){
   const fromInit = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
   const sp = new URLSearchParams(location.search);
