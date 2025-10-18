@@ -491,12 +491,17 @@ function ensureAdminButton(){
   if (!adminBtn) return;
   // проверим у бэкенда, является ли текущий пользователь админом
   adminBtn.classList.add('hidden');
+  const addCardBtn = document.getElementById('addCardBtn');
+  if (addCardBtn) addCardBtn.classList.add('hidden');
   (async ()=>{
     try{
       const init_data = window.Telegram?.WebApp?.initData || '';
       const res = await fetch(new URL('/check_admin', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data }) });
       const j = await res.json().catch(()=>({ ok:false }));
-      if (j.ok && j.isAdmin) { adminBtn.classList.remove('hidden'); adminBtn.onclick = () => { location.hash = '#/admin'; }; }
+      if (j.ok && j.isAdmin) { 
+        adminBtn.classList.remove('hidden'); adminBtn.onclick = () => { location.hash = '#/admin'; };
+        if (addCardBtn) { addCardBtn.classList.remove('hidden'); addCardBtn.onclick = () => { location.hash = '#/admin'; } }
+      }
     }catch(e){ console.warn('check_admin error', e); }
   })();
 }
@@ -550,22 +555,82 @@ function openAdminEdit(id){
   form.innerHTML = `
     <label class="block text-sm"><span class="muted">ID (латиница, уникальный)</span><input name="id" required class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
     <label class="block text-sm"><span class="muted">Заголовок</span><input name="title" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <label class="block text-sm"><span class="muted">Короткое описание</span><input name="short" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+    <label class="block text-sm"><span class="muted">Короткое описание</span><input name="shortDescription" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+    <label class="block text-sm"><span class="muted">Полное описание</span><textarea name="description" class="w-full mt-1 rounded bg-transparent border px-3 py-2" rows="5"></textarea></label>
     <label class="block text-sm"><span class="muted">Ссылка</span><input name="link" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <label class="block text-sm"><span class="muted">Картинки (кома-разделённые пути)</span><input name="imgs" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+    <div class="block text-sm"><span class="muted">Галерея</span><div id="adminGallery" class="mt-2"></div></div>
+    <label class="block text-sm"><span class="muted">Загрузить изображение</span>
+      <div class="flex gap-2 mt-1"><input id="imgUpload" type="file" accept="image/*" class="rounded bg-transparent border px-3 py-2"/><button id="imgUploadBtn" type="button" class="btn rounded px-3 py-2">Загрузить</button></div>
+      <div id="imgUploadStatus" class="text-sm muted mt-1"></div>
+    </label>
     <div class="flex gap-2"><button type="submit" class="btn rounded px-3 py-2">Сохранить</button><button type="button" id="adminCancel" class="rounded border px-3 py-2">Отмена</button></div>
   `;
   root.appendChild(form);
-  if (p){ form.id.value = p.id; form.title.value = p.title; form.short.value = p.short || ''; form.link.value = p.link || ''; form.imgs.value = (p.imgs||[]).join(','); }
+
+  // initialize data
+  const imgs = (p && Array.isArray(p.imgs)) ? p.imgs.slice() : []; // array of {url, public_id} or strings
+  if (p) { form.id.value = p.id; form.title.value = p.title || ''; form.shortDescription.value = p.shortDescription || p.short || ''; form.description.value = p.description || ''; form.link.value = p.link || ''; }
+
+  const gallery = root.querySelector('#adminGallery');
+  function renderGallery(){
+    gallery.innerHTML = '';
+    imgs.forEach((img, idx) => {
+      const src = (typeof img === 'string') ? img : (img.url || '');
+      const wrap = document.createElement('div'); wrap.className = 'inline-block mr-2 mb-2';
+      wrap.innerHTML = `<div class="w-28 h-20 bg-black/5 rounded overflow-hidden"><img src="${src}" class="w-full h-full object-cover"></div><div class="flex gap-1 mt-1"><button data-idx="${idx}" class="img-del rounded px-2 py-1 text-xs border" style="border-color:var(--sep)">Удалить</button></div>`;
+      gallery.appendChild(wrap);
+    });
+    gallery.querySelectorAll('.img-del').forEach(b => b.addEventListener('click', async (ev)=>{
+      const idx = Number(ev.target.dataset.idx);
+      const img = imgs[idx];
+      if (!confirm('Удалить изображение?')) return;
+      const init_data = window.Telegram?.WebApp?.initData || '';
+      const body = { init_data, productId: form.id.value || id };
+      if (typeof img === 'string') body.path = img; else { body.public_id = img.public_id || img.path || null; body.path = img.url || null; }
+      try{
+        const res = await fetch(new URL('/images', API_BASE).toString(), { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const j = await res.json().catch(()=>({ ok:false }));
+        if (j.ok) { imgs.splice(idx,1); renderGallery(); toast('Изображение удалено'); }
+        else { toast('Ошибка удаления'); }
+      }catch(e){ console.error('delete image error', e); toast('Ошибка удаления'); }
+    }));
+  }
+  renderGallery();
+
+  // upload
+  const uploadInput = form.querySelector('#imgUpload');
+  const uploadBtn = form.querySelector('#imgUploadBtn');
+  const uploadStatus = form.querySelector('#imgUploadStatus');
+  uploadBtn.addEventListener('click', async ()=>{
+    if (!uploadInput.files || !uploadInput.files.length) { alert('Выберите файл'); return; }
+    const file = uploadInput.files[0];
+    uploadStatus.textContent = 'Загрузка...';
+    try{
+      const fd = new FormData(); fd.append('image', file);
+      const cardId = form.id.value || id || ('p_' + Date.now()); if (cardId) fd.append('cardId', cardId);
+      const res = await fetch(new URL('/upload-image', API_BASE).toString(), { method:'POST', body: fd });
+      const j = await res.json();
+      if (j.ok) {
+        const obj = (j.url || j.path) ? { url: j.url || j.path, public_id: j.path } : (j.path || j.url);
+        imgs.push(obj);
+        renderGallery();
+        uploadStatus.textContent = 'Загружено';
+      } else { uploadStatus.textContent = 'Ошибка загрузки'; console.warn('upload failed', j); }
+    }catch(e){ uploadStatus.textContent = 'Ошибка'; console.error(e); }
+  });
+
   form.addEventListener('submit', async (e)=>{ 
     e.preventDefault(); 
-    const fd=new FormData(form); 
-    const obj={ id: fd.get('id').trim(), title: fd.get('title').trim(), short: fd.get('short').trim(), link: fd.get('link').trim(), imgs: String(fd.get('imgs')||'').split(',').map(s=>s.trim()).filter(Boolean) };
-    // сохранить на сервер
-    const r = await saveProductToServer(obj);
-    if (r && r.ok) { alert('Сохранено'); await loadProducts(); renderCards(); document.getElementById('adminEditRoot').innerHTML=''; }
-    else { alert('Ошибка сохранения'); }
+    const idv = form.id.value.trim();
+    const payload = { id: idv || ('p_' + Date.now()), title: form.title.value.trim(), shortDescription: form.shortDescription.value.trim(), description: form.description.value.trim(), link: form.link.value.trim(), imgs: imgs };
+    const init_data = window.Telegram?.WebApp?.initData || '';
+    try{
+      const res = await fetch(new URL('/products', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data, product: payload }) });
+      const j = await res.json().catch(()=>({ ok:false }));
+      if (j.ok) { alert('Сохранено'); await loadProducts(); renderCards(); root.innerHTML=''; } else { alert('Ошибка сохранения'); }
+    }catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
+
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
 }
 
