@@ -258,16 +258,23 @@ function renderCards() {
     img.alt = p.title;
     img.loading = 'lazy';
     img.className = 'w-full img-cover';
-    img.onerror = () => { 
-    if (p.img.endsWith('.png')) {
-      const jpg = p.img.replace('.png', '.jpg');
-      img.onerror = () => {
-        console.warn('Image not found:', p.img, 'and', jpg);
+    img.onerror = () => {
+      if (!p || typeof p.img !== 'string') {
         img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
-      };
-      img.src = jpg;
+        return;
+      }
+      if (p.img.endsWith('.png')) {
+        const jpg = p.img.replace('.png', '.jpg');
+        img.onerror = () => {
+          console.warn('Image not found:', p.img, 'and', jpg);
+          img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
+        };
+        img.src = jpg;
+      } else {
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
       }
     };
+
 
     link.appendChild(img);
 
@@ -481,64 +488,33 @@ function handleStartParam(raw){
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
 const adminBtn = document.getElementById('adminBtn');
-function ensureAdminButton(){
+async function ensureAdminButton(){
   if (!adminBtn) return;
-  // проверим у бэкенда, является ли текущий пользователь админом
   adminBtn.classList.add('hidden');
   const addCardBtn = document.getElementById('addCardBtn');
   if (addCardBtn) addCardBtn.classList.add('hidden');
-  (async ()=>{
-    try{
-  const init_data = window.Telegram?.WebApp?.initData || '';
-  const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
-  const res = await fetch(new URL('/check_admin', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data, init_data_unsafe }) });
-      const j = await res.json().catch(()=>({ ok:false }));
-      if (j.ok && j.isAdmin) { 
-        adminBtn.classList.remove('hidden'); adminBtn.onclick = () => { location.hash = '#/admin'; };
-        if (addCardBtn) { addCardBtn.classList.remove('hidden'); addCardBtn.onclick = () => { location.hash = '#/admin'; } }
-      }
-    }catch(e){ console.warn('check_admin error', e); }
-  })();
-}
-ensureAdminButton();
 
-async function renderAdmin(){
-  // простой админский экран заменяет список
-  const adminRoot = document.createElement('main');
-  adminRoot.id = 'adminView'; adminRoot.className='max-w-4xl mx-auto p-4';
-  adminRoot.innerHTML = `
-    <div class="flex items-center gap-3 mb-4"><h2 class="text-lg font-semibold">Админка: карточки</h2>
-      <div class="ml-auto"><button id="adminNew" class="btn rounded-lg px-3 py-2">Создать карточку</button></div>
-    </div>
-    <div id="adminList" class="space-y-3"></div>
-    <div id="adminEditRoot" class="mt-4"></div>
-  `;
-  document.body.appendChild(adminRoot);
-
-  const adminList = adminRoot.querySelector('#adminList');
-  // гарантируем актуальность списка
-  await loadProducts();
-  function redraw(){
-    const list = PRODUCTS || [];
-    adminList.innerHTML='';
-    list.forEach(p => {
-      const el = document.createElement('div'); el.className='card p-3 rounded';
-      el.innerHTML = `<div class="flex items-center gap-3"><div class="flex-1"><b>${p.title}</b><div class="text-sm muted">${p.short || ''}</div></div>
-        <div class="flex gap-2"><button data-id="${p.id}" class="editBtn border rounded px-2 py-1">Ред.</button><button data-id="${p.id}" class="delBtn border rounded px-2 py-1">Удал.</button></div></div>`;
-      adminList.appendChild(el);
+  try {
+    const init_data = window.Telegram?.WebApp?.initData || '';
+    const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
+    const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ init_data, init_data_unsafe })
     });
-    adminList.querySelectorAll('.editBtn').forEach(b=>b.addEventListener('click',(e)=>openAdminEdit(e.target.dataset.id)));
-    adminList.querySelectorAll('.delBtn').forEach(b=>b.addEventListener('click', async (e)=>{
-      if (!confirm('Удалить?')) return;
-      const id = e.target.dataset.id;
-      const r = await deleteProductOnServer(id);
-      if (r && r.ok) { alert('Удалено'); await loadProducts(); redraw(); renderCards(); }
-      else alert('Ошибка удаления');
-    }));
+    const j = await res.json().catch(()=>({ ok:false }));
+    console.log('[ensureAdminButton] /check_admin ->', j);   // <— видно, почему не рисуется
+    if (j.ok && j.isAdmin) {
+      adminBtn.classList.remove('hidden');
+      adminBtn.onclick = () => { location.hash = '#/admin'; };
+      if (addCardBtn) {
+        addCardBtn.classList.remove('hidden');
+        addCardBtn.onclick = () => { location.hash = '#/admin'; };
+      }
+    }
+  } catch (e) {
+    console.warn('check_admin error', e);
   }
-  redraw();
-
-  adminRoot.querySelector('#adminNew').addEventListener('click', ()=> openAdminEdit());
 }
 
 function openAdminEdit(id){
@@ -546,88 +522,206 @@ function openAdminEdit(id){
   const root = document.getElementById('adminEditRoot') || document.querySelector('#adminView #adminEditRoot');
   if (!root) return;
   root.innerHTML = '';
-  const form = document.createElement('form'); form.className='card p-4 rounded space-y-2';
+
+  const form = document.createElement('form');
+  form.className = 'card p-4 rounded space-y-2';
   form.innerHTML = `
-    <label class="block text-sm"><span class="muted">ID (латиница, уникальный)</span><input name="id" required class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <label class="block text-sm"><span class="muted">Заголовок</span><input name="title" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <label class="block text-sm"><span class="muted">Короткое описание</span><input name="shortDescription" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <label class="block text-sm"><span class="muted">Полное описание</span><textarea name="description" class="w-full mt-1 rounded bg-transparent border px-3 py-2" rows="5"></textarea></label>
-    <label class="block text-sm"><span class="muted">Ссылка</span><input name="link" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-    <div class="block text-sm"><span class="muted">Галерея</span><div id="adminGallery" class="mt-2"></div></div>
-    <label class="block text-sm"><span class="muted">Загрузить изображение</span>
-      <div class="flex gap-2 mt-1"><input id="imgUpload" type="file" accept="image/*" class="rounded bg-transparent border px-3 py-2"/><button id="imgUploadBtn" type="button" class="btn rounded px-3 py-2">Загрузить</button></div>
-      <div id="imgUploadStatus" class="text-sm muted mt-1"></div>
-    </label>
-    <div class="flex gap-2"><button type="submit" class="btn rounded px-3 py-2">Сохранить</button><button type="button" id="adminCancel" class="rounded border px-3 py-2">Отмена</button></div>
+    <label class="block text-sm"><span class="muted">ID (латиница, уникальный)</span>
+      <input name="id" required class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+
+    <label class="block text-sm"><span class="muted">Заголовок</span>
+      <input name="title" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+
+    <label class="block text-sm"><span class="muted">Короткое описание</span>
+      <input name="shortDescription" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+
+    <label class="block text-sm"><span class="muted">Полное описание</span>
+      <textarea name="description" class="w-full mt-1 rounded bg-transparent border px-3 py-2" rows="5"></textarea></label>
+
+    <label class="block text-sm"><span class="muted">Ссылка</span>
+      <input name="link" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
+
+    <div class="block text-sm">
+      <span class="muted">Галерея</span>
+      <div id="adminGallery" class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+    </div>
+
+    <div class="block text-sm">
+      <input id="imgUpload" type="file" accept="image/*" multiple class="hidden" />
+      <button id="imgPickBtn" type="button" class="btn rounded px-3 py-2">Загрузить</button>
+      <span id="imgUploadStatus" class="text-sm muted ml-2"></span>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+      <button type="submit" class="btn rounded px-3 py-2">Сохранить</button>
+      <button type="button" id="adminCancel" class="rounded px-3 py-2 border" style="border-color:var(--sep)">Отмена</button>
+    </div>
   `;
   root.appendChild(form);
 
-  // initialize data
-  const imgs = (p && Array.isArray(p.imgs)) ? p.imgs.slice() : []; // array of {url, public_id} or strings
-  if (p) { form.id.value = p.id; form.title.value = p.title || ''; form.shortDescription.value = p.shortDescription || p.short || ''; form.description.value = p.description || ''; form.link.value = p.link || ''; }
-
-  const gallery = root.querySelector('#adminGallery');
-  function renderGallery(){
-    gallery.innerHTML = '';
-    imgs.forEach((img, idx) => {
-      const src = (typeof img === 'string') ? img : (img.url || '');
-      const wrap = document.createElement('div'); wrap.className = 'inline-block mr-2 mb-2';
-      wrap.innerHTML = `<div class="w-28 h-20 bg-black/5 rounded overflow-hidden"><img src="${src}" class="w-full h-full object-cover"></div><div class="flex gap-1 mt-1"><button data-idx="${idx}" class="img-del rounded px-2 py-1 text-xs border" style="border-color:var(--sep)">Удалить</button></div>`;
-      gallery.appendChild(wrap);
-    });
-    gallery.querySelectorAll('.img-del').forEach(b => b.addEventListener('click', async (ev)=>{
-      const idx = Number(ev.target.dataset.idx);
-      const img = imgs[idx];
-      if (!confirm('Удалить изображение?')) return;
-      const init_data = window.Telegram?.WebApp?.initData || '';
-      const body = { init_data, productId: form.id.value || id };
-      if (typeof img === 'string') body.path = img; else { body.public_id = img.public_id || img.path || null; body.path = img.url || null; }
-      try{
-        const res = await fetch(new URL('/images', API_BASE).toString(), { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        const j = await res.json().catch(()=>({ ok:false }));
-        if (j.ok) { imgs.splice(idx,1); renderGallery(); toast('Изображение удалено'); }
-        else { toast('Ошибка удаления'); }
-      }catch(e){ console.error('delete image error', e); toast('Ошибка удаления'); }
-    }));
+  // инициализация значений
+  const imgs = (p && Array.isArray(p.imgs)) ? p.imgs.slice() : [];
+  if (p) {
+    form.id.value = p.id;
+    form.title.value = p.title || '';
+    form.shortDescription.value = p.shortDescription || p.short || '';
+    form.description.value = p.description || '';
+    form.link.value = p.link || '';
   }
-  renderGallery();
 
-  // upload
-  const uploadInput = form.querySelector('#imgUpload');
-  const uploadBtn = form.querySelector('#imgUploadBtn');
-  const uploadStatus = form.querySelector('#imgUploadStatus');
-  uploadBtn.addEventListener('click', async ()=>{
-    if (!uploadInput.files || !uploadInput.files.length) { alert('Выберите файл'); return; }
-    const file = uploadInput.files[0];
-    uploadStatus.textContent = 'Загрузка...';
-    try{
-      const fd = new FormData(); fd.append('image', file);
-      const cardId = form.id.value || id || ('p_' + Date.now()); if (cardId) fd.append('cardId', cardId);
-      const res = await fetch(new URL('/upload-image', API_BASE).toString(), { method:'POST', body: fd });
-      const j = await res.json();
-      if (j.ok) {
-        const obj = (j.url || j.path) ? { url: j.url || j.path, public_id: j.path } : (j.path || j.url);
-        imgs.push(obj);
-        renderGallery();
-        uploadStatus.textContent = 'Загружено';
-      } else { uploadStatus.textContent = 'Ошибка загрузки'; console.warn('upload failed', j); }
-    }catch(e){ uploadStatus.textContent = 'Ошибка'; console.error(e); }
+  // примеры-плейсхолдеры
+  form.id.placeholder = 'poster_ultra';
+  form.title.placeholder = 'Постер «Космос: Туманность Ориона»';
+  form.shortDescription.placeholder = 'Печать на холсте, 50×70 см, быстрая доставка';
+  form.description.placeholder = 'Плотный холст 350 г/м², стойкие пигменты. Индивидуальная корректировка по фото.';
+  form.link.placeholder = 'https://t.me/your_bot?start=consult';
+
+  // --- загрузка серии фото: состояние и UI
+  const selectedFiles = [];                  // File[]
+  const gallery   = root.querySelector('#adminGallery');
+  const fileInput = form.querySelector('#imgUpload');
+  const pickBtn   = form.querySelector('#imgPickBtn');
+  const statusEl  = form.querySelector('#imgUploadStatus');
+
+  function updatePickBtn(){
+    pickBtn.textContent = selectedFiles.length ? `Отправить ${selectedFiles.length} фото` : 'Загрузить';
+    statusEl.textContent = selectedFiles.length ? 'Фото выбраны, можно отправлять' : '';
+  }
+
+  pickBtn.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) fileInput.click();
+    else await uploadSelectedFiles();
   });
 
-  form.addEventListener('submit', async (e)=>{ 
-    e.preventDefault(); 
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files.length) {
+      selectedFiles.push(...Array.from(fileInput.files));
+      fileInput.value = ''; // чтобы можно было выбирать те же имена повторно
+      renderGallery();
+      updatePickBtn();
+    }
+  });
+
+  function renderGallery(){
+    gallery.innerHTML = '';
+
+    // 1) уже загруженные у товара
+    imgs.forEach((img, idx) => {
+      const src = (typeof img === 'string') ? img : (img.url || '');
+      const wrap = document.createElement('div');
+      wrap.className = 'relative rounded overflow-hidden border';
+      wrap.style.borderColor = 'var(--sep)';
+      wrap.innerHTML = `
+        <img src="${src}" class="w-full h-24 object-cover">
+        <button data-exist="${idx}" class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Удалить</button>
+      `;
+      gallery.appendChild(wrap);
+
+      wrap.querySelector('button').onclick = async () => {
+        if (!confirm('Удалить изображение?')) return;
+        const imgObj = imgs[idx];
+        const init_data = window.Telegram?.WebApp?.initData || '';
+        const body = { init_data, productId: form.id.value || id };
+        if (typeof imgObj === 'string') body.path = imgObj;
+        else { body.public_id = imgObj.public_id || imgObj.path || null; body.path = imgObj.url || null; }
+        try {
+          const res = await fetch(new URL('/images', API_BASE).toString(), {
+            method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+          });
+          const j = await res.json().catch(()=>({ok:false}));
+          if (j.ok) { imgs.splice(idx,1); renderGallery(); toast('Изображение удалено'); }
+          else toast('Ошибка удаления');
+        } catch(e){ console.error('delete image error', e); toast('Ошибка удаления'); }
+      };
+    });
+
+    // 2) локально выбранные (ещё не загруженные)
+    selectedFiles.forEach((f, idx) => {
+      const url = URL.createObjectURL(f);
+      const wrap = document.createElement('div');
+      wrap.className = 'relative rounded overflow-hidden border';
+      wrap.style.borderColor = 'var(--sep)';
+      wrap.innerHTML = `
+        <img src="${url}" class="w-full h-24 object-cover">
+        <button class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Убрать</button>
+      `;
+      gallery.appendChild(wrap);
+
+      wrap.querySelector('button').onclick = () => {
+        selectedFiles.splice(idx,1);
+        URL.revokeObjectURL(url);
+        renderGallery();
+        updatePickBtn();
+      };
+    });
+
+    if (imgs.length === 0 && selectedFiles.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'text-sm muted';
+      empty.textContent = 'Нет изображений';
+      gallery.appendChild(empty);
+    }
+  }
+
+  async function uploadSelectedFiles(){
+    if (selectedFiles.length === 0) return;
+    const cardId = form.id.value || id || ('p_' + Date.now());
+    statusEl.textContent = 'Загрузка...';
+    pickBtn.disabled = true;
+
+    for (const file of selectedFiles) {
+      const fd = new FormData();
+      fd.append('image', file);
+      fd.append('cardId', cardId);
+
+      try {
+        const res = await fetch(new URL('/upload-image', API_BASE).toString(), { method:'POST', body: fd });
+        const j = await res.json().catch(()=>({ok:false}));
+        if (j.ok) {
+          const obj = (j.url || j.path) ? { url: j.url || j.path, public_id: j.path } : (j.path || j.url);
+          imgs.push(obj);
+        } else {
+          console.warn('upload failed', j); toast('Не удалось загрузить одно из изображений');
+        }
+      } catch(e){ console.error('upload error', e); toast('Ошибка сети при загрузке'); }
+    }
+
+    selectedFiles.length = 0;
+    statusEl.textContent = 'Готово';
+    pickBtn.disabled = false;
+    updatePickBtn();
+    renderGallery();
+  }
+
+  renderGallery();
+  updatePickBtn();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
     const idv = form.id.value.trim();
-    const payload = { id: idv || ('p_' + Date.now()), title: form.title.value.trim(), shortDescription: form.shortDescription.value.trim(), description: form.description.value.trim(), link: form.link.value.trim(), imgs: imgs };
+    const payload = {
+      id: idv || ('p_' + Date.now()),
+      title: form.title.value.trim(),
+      shortDescription: form.shortDescription.value.trim(),
+      description: form.description.value.trim(),
+      link: form.link.value.trim(),
+      imgs
+    };
     const init_data = window.Telegram?.WebApp?.initData || '';
     try{
-      const res = await fetch(new URL('/products', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data, product: payload }) });
+      const res = await fetch(new URL('/products', API_BASE).toString(), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ init_data, product: payload })
+      });
       const j = await res.json().catch(()=>({ ok:false }));
-      if (j.ok) { alert('Сохранено'); await loadProducts(); renderCards(); root.innerHTML=''; } else { alert('Ошибка сохранения'); }
-    }catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
+      if (j.ok) { alert('Сохранено'); await loadProducts(); renderCards(); root.innerHTML=''; }
+      else { alert('Ошибка сохранения'); }
+    } catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
 
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
 }
+
 
 // При навигации в админку
 function showAdmin(){
