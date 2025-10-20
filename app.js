@@ -482,6 +482,7 @@ function handleStartParam(raw){
   renderCards();
   updateCartUI();
   handleStartParam(getStartParam());
+  ensureAdminButton();                 // ← добавили вызов, чтобы кнопка Admin рисовалась
   window.addEventListener('hashchange', router);
   router();
 })();
@@ -722,6 +723,24 @@ function openAdminEdit(id){
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
 }
 
+// Простая обёртка для экрана админки
+function renderAdmin(){
+  // Уберём прошлую админ-вёрстку (если была)
+  const exist = document.getElementById('adminView'); 
+  if (exist) exist.remove();
+
+  const view = document.createElement('main');
+  view.id = 'adminView';
+  view.className = 'max-w-5xl mx-auto p-4 fade-in';
+  view.innerHTML = `
+    <h2 class="text-lg font-semibold mb-3">Админка: карточки</h2>
+    <div id="adminEditRoot"></div>
+  `;
+  document.body.appendChild(view);
+
+  // откроем форму создания/редактирования
+  openAdminEdit(null);
+}
 
 // При навигации в админку
 function showAdmin(){
@@ -741,3 +760,7 @@ function router(){
   else showList();
 }
 
+try {
+  window.removeEventListener('hashchange', _oldRouter);
+} catch {}
+window.addEventListener('hashchange', router);
