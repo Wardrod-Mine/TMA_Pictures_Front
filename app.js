@@ -253,8 +253,20 @@ function renderCards() {
     link.setAttribute('aria-label', `Подробнее: ${p.title}`);
     link.className = 'block';
 
-  const img = document.createElement('img');
-  img.src = (p.imgs && p.imgs.length) ? p.imgs[0] : (p.img || './assets/cards/placeholder.jpg');
+    const img = document.createElement('img');
+    function firstImg(prod){
+      if (!prod) return '';
+      const a = Array.isArray(prod.imgs) ? prod.imgs : [];
+      if (a.length) {
+        const v = a[0];
+        if (typeof v === 'string') return v;
+        if (v && typeof v === 'object') return v.url || v.path || '';
+      }
+      // обратная совместимость
+      if (typeof prod.img === 'string') return prod.img;
+      return './assets/cards/placeholder.jpg';
+    }
+    img.src = firstImg(p);
     img.alt = p.title;
     img.loading = 'lazy';
     img.className = 'w-full img-cover';
@@ -274,7 +286,6 @@ function renderCards() {
         img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
       }
     };
-
 
     link.appendChild(img);
 
@@ -421,17 +432,29 @@ consultForm.addEventListener('submit', (e) => {
 function showDetail(productId){
   const p = PRODUCTS.find(x => x.id === productId);
   if (!p) return showList();
-  // Gallery: use main image and render thumbnails
-  detailImg.src = (p.imgs && p.imgs.length) ? p.imgs[0] : (p.img || ''); detailImg.alt = p.title;
+  const pick = (v) => (typeof v === 'string' ? v : ((v && (v.url || v.path)) || ''));
+  const mainSrc = (Array.isArray(p.imgs) && p.imgs.length)
+    ? pick(p.imgs[0])
+    : (typeof p.img === 'string' ? p.img : '');
+  detailImg.src = mainSrc;
+  detailImg.alt = p.title;
+
   const galleryRootId = 'detailGalleryThumbs';
   let galleryRoot = document.getElementById(galleryRootId);
   if (!galleryRoot) {
-    galleryRoot = document.createElement('div'); galleryRoot.id = galleryRootId; galleryRoot.className='flex gap-2';
+    galleryRoot = document.createElement('div');
+    galleryRoot.id = galleryRootId;
+    galleryRoot.className = 'flex gap-2';
     detailImg.parentNode.insertBefore(galleryRoot, detailImg.nextSibling);
   }
   galleryRoot.innerHTML = '';
-  (p.imgs||[]).forEach((src, idx) => {
-    const tn = document.createElement('img'); tn.src = src; tn.className='w-20 h-12 object-cover rounded cursor-pointer border';
+
+  (p.imgs || []).forEach((item) => {
+    const src = pick(item);
+    if (!src) return;
+    const tn = document.createElement('img');
+    tn.src = src;
+    tn.className = 'w-20 h-12 object-cover rounded cursor-pointer border';
     tn.onclick = () => { detailImg.src = src; };
     galleryRoot.appendChild(tn);
   });
@@ -482,7 +505,7 @@ function handleStartParam(raw){
   renderCards();
   updateCartUI();
   handleStartParam(getStartParam());
-  ensureAdminButton();                 // ← добавили вызов, чтобы кнопка Admin рисовалась
+  ensureAdminButton();
   window.addEventListener('hashchange', router);
   router();
 })();
@@ -504,7 +527,7 @@ async function ensureAdminButton(){
       body: JSON.stringify({ init_data, init_data_unsafe })
     });
     const j = await res.json().catch(()=>({ ok:false }));
-    console.log('[ensureAdminButton] /check_admin ->', j);   // <— видно, почему не рисуется
+    console.log('[ensureAdminButton] /check_admin ->', j);
     if (j.ok && j.isAdmin) {
       adminBtn.classList.remove('hidden');
       adminBtn.onclick = () => { location.hash = '#/admin'; };
@@ -715,8 +738,13 @@ function openAdminEdit(id){
         body: JSON.stringify({ init_data, product: payload })
       });
       const j = await res.json().catch(()=>({ ok:false }));
-      if (j.ok) { alert('Сохранено'); await loadProducts(); renderCards(); root.innerHTML=''; }
-      else { alert('Ошибка сохранения'); }
+      if (j.ok) {
+        alert('Сохранено');
+        await loadProducts(); renderCards(); root.innerHTML = '';
+      } else {
+        alert('Ошибка сохранения: ' + (j.error || (res?.status + ' ' + res?.statusText) || 'unknown'));
+      }
+
     } catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
 
