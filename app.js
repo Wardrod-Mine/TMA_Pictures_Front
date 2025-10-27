@@ -210,7 +210,11 @@ async function saveProductToServer(product){
   try{
     const init_data = window.Telegram?.WebApp?.initData || '';
     const res = await fetch(new URL('/products', API_BASE).toString(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data, product }) });
-    return await res.json();
+    const j = await res.json().catch(()=>({ok:false}));
+    if (!j.ok) {
+      alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
+    }
+    return j;
   }catch(e){ console.error('saveProductToServer error', e); return { ok:false }; }
 }
 
@@ -299,11 +303,6 @@ function renderCards() {
     const small = document.createElement('p');
     small.textContent = p.short;
     small.className = 'text-sm muted';
-
-    const more = document.createElement('a');
-    more.href = `#/product/${p.id}`;
-    more.className = 'link text-sm';
-    more.textContent = 'Подробнее →';
 
     // Admin quick actions — handled by admin UI; leave no inline edit for safety
 
@@ -562,9 +561,6 @@ function openAdminEdit(id){
     <label class="block text-sm"><span class="muted">Полное описание</span>
       <textarea name="description" class="w-full mt-1 rounded bg-transparent border px-3 py-2" rows="5"></textarea></label>
 
-    <label class="block text-sm"><span class="muted">Ссылка</span>
-      <input name="link" class="w-full mt-1 rounded bg-transparent border px-3 py-2"/></label>
-
     <div class="block text-sm">
       <span class="muted">Галерея</span>
       <div id="adminGallery" class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
@@ -598,7 +594,6 @@ function openAdminEdit(id){
   form.title.placeholder = 'Постер «Космос: Туманность Ориона»';
   form.shortDescription.placeholder = 'Печать на холсте, 50×70 см, быстрая доставка';
   form.description.placeholder = 'Плотный холст 350 г/м², стойкие пигменты. Индивидуальная корректировка по фото.';
-  form.link.placeholder = 'https://t.me/your_bot?start=consult';
 
   // --- загрузка серии фото: состояние и UI
   const selectedFiles = [];                  // File[]
@@ -786,6 +781,29 @@ function router(){
   if (hash === '#/admin') { showAdmin(); return; }
   if (hash.startsWith('#/product/')) showDetail(hash.replace('#/product/',''));
   else showList();
+}
+
+function openOrderForm(product) {
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="p-4 text-white">
+      <h2 class="text-2xl font-bold mb-3">${product.title}</h2>
+      <p class="mb-3">${product.short || ''}</p>
+      <p class="opacity-80 mb-4">${product.desc || ''}</p>
+      <button id="confirmOrder" class="bg-green-600 hover:bg-green-700 rounded px-4 py-2">
+        Подтвердить заказ
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('confirmOrder').onclick = () => {
+    Telegram.WebApp.sendData(JSON.stringify({
+      action: 'order',
+      id: product.id,
+      title: product.title
+    }));
+    Telegram.WebApp.close();
+  };
 }
 
 try {
