@@ -303,9 +303,7 @@ function renderCards() {
     const small = document.createElement('p');
     small.textContent = p.short;
     small.className = 'text-sm muted';
-
-    // Admin quick actions — handled by admin UI; leave no inline edit for safety
-
+    
     body.append(h3, small, more);
     card.append(link, body);
     cardsRoot.appendChild(card);
@@ -723,7 +721,6 @@ function openAdminEdit(id){
       title: form.title.value.trim(),
       shortDescription: form.shortDescription.value.trim(),
       description: form.description.value.trim(),
-      link: form.link.value.trim(),
       imgs
     };
     const init_data = window.Telegram?.WebApp?.initData || '';
@@ -737,9 +734,8 @@ function openAdminEdit(id){
         alert('Сохранено');
         await loadProducts(); renderCards(); root.innerHTML = '';
       } else {
-        alert('Ошибка сохранения: ' + (j.error || (res?.status + ' ' + res?.statusText) || 'unknown'));
+        alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
       }
-
     } catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
 
