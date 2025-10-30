@@ -297,14 +297,21 @@ function renderCards() {
     body.className = 'p-4 space-y-2';
 
     const h3 = document.createElement('h3');
-    h3.textContent = p.title;
+    h3.textContent = p.title || '';
     h3.className = 'font-semibold';
 
     const small = document.createElement('p');
-    small.textContent = p.short;
+    small.textContent = p.short || '';
     small.className = 'text-sm muted';
-    
+
+    // кнопка/ссылка "Подробнее"
+    const more = document.createElement('a');
+    more.href = `#/product/${p.id}`;
+    more.textContent = 'Подробнее';
+    more.className = 'link text-sm';
+
     body.append(h3, small, more);
+
     card.append(link, body);
     cardsRoot.appendChild(card);
   });
@@ -458,9 +465,18 @@ function showDetail(productId){
   detailTitle.textContent = p.title; detailShort.textContent = p.short;
 
   detailBullets.innerHTML = '';
-  const ul = document.createElement('ul'); ul.className = 'list-disc ml-5';
-  p.bullets.forEach(b => { const li=document.createElement('li'); li.textContent=b; ul.appendChild(li); });
-  detailBullets.appendChild(ul);
+  const bullets = Array.isArray(p.bullets) ? p.bullets : [];
+  if (bullets.length) {
+    const ul = document.createElement('ul');
+    ul.className = 'list-disc ml-5';
+    bullets.forEach(b => {
+      const li = document.createElement('li');
+      li.textContent = b;
+      ul.appendChild(li);
+    });
+    detailBullets.appendChild(ul);
+  }
+
 
   detailLong.innerHTML = '';
   (p.long||[]).forEach(par => { const el=document.createElement('p'); el.textContent=par; detailLong.appendChild(el); });
@@ -518,11 +534,11 @@ async function ensureAdminButton(){
   try {
     const init_data = window.Telegram?.WebApp?.initData || '';
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
-    const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({ init_data, init_data_unsafe })
-    });
+    const url = new URL('/check_admin', API_BASE);
+    url.searchParams.set('init_data', init_data || '');
+    url.searchParams.set('unsafe', 'true'); // чтобы работал фолбэк при десктопе
+    const res = await fetch(url.toString(), { method: 'GET' });
+
     const j = await res.json().catch(()=>({ ok:false }));
     console.log('[ensureAdminButton] /check_admin ->', j);
     if (j.ok && j.isAdmin) {
