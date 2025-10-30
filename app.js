@@ -540,8 +540,10 @@ async function ensureAdminButton(){
     const res = await fetch(url.toString(), { method: 'GET' });
 
     const j = await res.json().catch(()=>({ ok:false }));
-    console.log('[ensureAdminButton] /check_admin ->', j);
-    if (j.ok && j.isAdmin) {
+    const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
+    console.log('[ensureAdminButton] /check_admin ->', j, 'isAdmin=', isAdmin);
+    if (j.ok && isAdmin) {
+
       adminBtn.classList.remove('hidden');
       adminBtn.onclick = () => { location.hash = '#/admin'; };
       if (addCardBtn) {
