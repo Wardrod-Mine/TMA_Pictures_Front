@@ -584,7 +584,6 @@ function openAdminEdit(id){
     form.title.value = p.title || '';
     form.shortDescription.value = p.shortDescription || p.short || '';
     form.description.value = p.description || '';
-    form.link.value = p.link || '';
   }
 
   // примеры-плейсхолдеры
