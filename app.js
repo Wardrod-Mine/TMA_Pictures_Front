@@ -126,15 +126,26 @@ requestForm.addEventListener('submit', (e) => {
 if (inTelegram) {
   tg.ready();
   tg.expand();
-  if (tg?.BackButton?.onClick) {
-    tg.BackButton.onClick(() => { if (location.hash.startsWith('#/product/')) location.hash = '#/'; })};
   tg.onEvent('themeChanged', applyThemeFromTelegram);
+
   const username = tg.initDataUnsafe?.user?.username;
   if (username) usernameSlot.textContent = `@${username}`;
-  backBtn.addEventListener('click', () => { if (location.hash.startsWith('#/product/')) location.hash = '#/'; });
+
+  if (tg?.BackButton?.onClick) {
+    tg.BackButton.onClick(() => {
+      if (location.hash.startsWith('#/product/')) location.hash = '#/';
+      else location.hash = '#/'; 
+    });
+  }
 } else {
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
+
+// Кнопка «Назад» в шапке — доступна и вне Telegram
+backBtn.addEventListener('click', () => {
+  if (location.hash.startsWith('#/product/')) location.hash = '#/';
+  else location.hash = '#/';
+});
 
 async function sendToBot(payload) {
   const API = window.__API_URL; // задан в index.html
@@ -266,7 +277,6 @@ function renderCards() {
         if (typeof v === 'string') return v;
         if (v && typeof v === 'object') return v.url || v.path || '';
       }
-      // обратная совместимость
       if (typeof prod.img === 'string') return prod.img;
       return './assets/cards/placeholder.jpg';
     }
@@ -304,7 +314,6 @@ function renderCards() {
     small.textContent = p.short || '';
     small.className = 'text-sm muted';
 
-    // кнопка/ссылка "Подробнее"
     const more = document.createElement('a');
     more.href = `#/product/${p.id}`;
     more.textContent = 'Подробнее';
@@ -339,7 +348,7 @@ function prepareSend(product, action, viaMainButton = false) {
     type: 'lead',
     action,
     product: { id: product.id, title: product.title },
-    selected: product.title,   // 🆕 сюда пишем, что выбрал клиент
+    selected: product.title, 
     at: new Date().toISOString()
   };
 
@@ -432,7 +441,6 @@ consultForm.addEventListener('submit', (e) => {
   closeConsult();
 });
 
-// ======= ЭКРАНЫ ===================
 function showDetail(productId){
   const p = PRODUCTS.find(x => x.id === productId);
   if (!p) return showList();
@@ -462,7 +470,8 @@ function showDetail(productId){
     tn.onclick = () => { detailImg.src = src; };
     galleryRoot.appendChild(tn);
   });
-  detailTitle.textContent = p.title; detailShort.textContent = p.short;
+  detailTitle.textContent = p.title;
+  detailShort.textContent = (p.shortDescription ?? p.short ?? '').toString();
 
   detailBullets.innerHTML = '';
   const bullets = Array.isArray(p.bullets) ? p.bullets : [];
@@ -477,23 +486,34 @@ function showDetail(productId){
     detailBullets.appendChild(ul);
   }
 
-
   detailLong.innerHTML = '';
-  (p.long||[]).forEach(par => { const el=document.createElement('p'); el.textContent=par; detailLong.appendChild(el); });
-
+    const longText = (typeof p.description === 'string' && p.description.trim())
+    ? p.description
+    : (Array.isArray(p.long) ? p.long.join('\n\n') : '');
+  if (longText) {
+    longText
+      .split(/\n{2,}/)             
+      .map(s => s.trim())
+      .filter(Boolean)
+      .forEach(par => {
+        const el = document.createElement('p');
+        el.textContent = par;
+        el.className = 'mb-2';
+        detailLong.appendChild(el);
+      });
+  }
   backBtn.classList.remove('hidden');
-
+  if (tg?.BackButton?.show) tg.BackButton.show();
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
-
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
-
 
   switchViews(listView, detailView);
 }
 
 function showList(){
   backBtn.classList.add('hidden');
+  if (tg?.BackButton?.hide) tg.BackButton.hide();
   switchViews(detailView, listView);
   updateCartUI();
 }
