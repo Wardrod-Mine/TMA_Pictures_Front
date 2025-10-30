@@ -1,6 +1,5 @@
 // ====== УТИЛИТЫ/DOM ===========================================================
 const $ = (sel, root = document) => root.querySelector(sel);
-
 const listView = $('#listView');
 const detailView = $('#detailView');
 const cardsRoot = $('#cards');
@@ -16,8 +15,6 @@ const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
 const cartCount = $('#cartCount');
 const toastEl = $('#toast');
-
-// Модалка консультации
 const consultModal = $('#consultModal');
 const consultForm = $('#consultForm');
 const consultCancel = $('#consultCancel');
@@ -39,14 +36,89 @@ const rCity = $('#rCity');
 const rComment = $('#rComment');
 const consultBtnMain = $('#consultBtnMain');
 
+// Gallery modal elements
+const galleryModal = document.getElementById('galleryModal');
+const galleryImg   = document.getElementById('galleryImg');
+const galleryClose = document.getElementById('galleryClose');
+const galleryPrev  = document.getElementById('galleryPrev');
+const galleryNext  = document.getElementById('galleryNext');
+
+function openGallery(p) {
+  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
+  if (!imgs.length) return;
+  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
+  galleryImg.src = src;
+  galleryModal.classList.remove('hidden');
+
+  galleryPrev.onclick = () => { prevImage(p); galleryImg.src = detailImg.src; };
+  galleryNext.onclick = () => { nextImage(p); galleryImg.src = detailImg.src; };
+  galleryClose.onclick = () => galleryModal.classList.add('hidden');
+
+  // свайп в модалке
+  attachSwipe(galleryModal, {
+    onLeft: () => { nextImage(p); galleryImg.src = detailImg.src; },
+    onRight: () => { prevImage(p); galleryImg.src = detailImg.src; },
+    min: 24
+  });
+}
+
 let requestContext = null;
+let currentIndex = 0;      
+let currentImageIndex = 0;   
+
+// Быстрый helper: безопасно взять первую картинку
+function currentImage(p) {
+  const arr = Array.isArray(p.imgs) ? p.imgs : [];
+  return arr[currentImageIndex] && (arr[currentImageIndex].url || arr[currentImageIndex]);
+}
+
+// Универсальный свайп-лисенер
+function attachSwipe(el, { onLeft, onRight, min = 30 }) {
+  if (!el) return;
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, active = false;
+  el.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    x0 = t.clientX; y0 = t.clientY; dx = 0; dy = 0; active = true;
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (!active) return;
+    const t = e.changedTouches[0];
+    dx = t.clientX - x0; dy = t.clientY - y0;
+  }, { passive: true });
+  el.addEventListener('touchend', () => {
+    if (!active) return;
+    active = false;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > min) {
+      if (dx < 0 && typeof onLeft === 'function')  onLeft();
+      if (dx > 0 && typeof onRight === 'function') onRight();
+    }
+  }, { passive: true });
+}
+
+// Анимация контейнера карточки (вход/выход)
+function animateCardEnter(container) {
+  container.classList.add('swipe-enter');
+  void container.offsetWidth;
+  container.classList.add('swipe-enter-active');
+  container.addEventListener('transitionend', () => {
+    container.classList.remove('swipe-enter','swipe-enter-active');
+  }, { once: true });
+}
+function animateCardLeave(container, cb) {
+  container.classList.add('swipe-leave');
+  void container.offsetWidth;
+  container.classList.add('swipe-leave-active');
+  container.addEventListener('transitionend', () => {
+    container.classList.remove('swipe-leave','swipe-leave-active');
+    if (cb) cb();
+  }, { once: true });
+}
 
 function closeRequest(){
   requestModal?.classList.add('hidden');
   requestContext = null;
 }
 
-// Утилиты для плавных модалок
 function modalShow(el){
   el.classList.remove('hidden');
   requestAnimationFrame(()=> el.classList.add('show'));
@@ -74,8 +146,6 @@ function openRequest(product){
 
   if (requestModal) modalShow(requestModal);
 }
-
-
 
 requestCancel.addEventListener('click', closeRequest);
 
@@ -126,29 +196,33 @@ requestForm.addEventListener('submit', (e) => {
 if (inTelegram) {
   tg.ready();
   tg.expand();
+  const goBack = () => {
+    if (location.hash && location.hash !== '#/') {
+      location.hash = '#/';
+    } else {
+      tg?.close?.();
+    }
+  };
+  if (tg?.BackButton) {
+    tg.BackButton.onClick(goBack);
+    tg.BackButton.show();
+  }
   tg.onEvent('themeChanged', applyThemeFromTelegram);
-
   const username = tg.initDataUnsafe?.user?.username;
   if (username) usernameSlot.textContent = `@${username}`;
-
-  if (tg?.BackButton?.onClick) {
-    tg.BackButton.onClick(() => {
-      if (location.hash.startsWith('#/product/')) location.hash = '#/';
-      else location.hash = '#/'; 
-    });
-  }
+  backBtn?.addEventListener('click', goBack);
 } else {
+
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
 
-// Кнопка «Назад» в шапке — доступна и вне Telegram
 backBtn.addEventListener('click', () => {
   if (location.hash.startsWith('#/product/')) location.hash = '#/';
   else location.hash = '#/';
 });
 
 async function sendToBot(payload) {
-  const API = window.__API_URL; // задан в index.html
+  const API = window.__API_URL; 
   try {
     console.log('[sendToBot] payload:', payload);
 
@@ -158,7 +232,6 @@ async function sendToBot(payload) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      // credentials не нужны; CORS решим на сервере
     });
 
     const data = await res.json().catch(() => ({ ok: false, error: 'empty' }));
@@ -201,7 +274,6 @@ function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
 
 // ============ ДАННЫЕ ТОВАРОВ ================
-// Продукты грузим с бэкенда; fallback — локальные дефолтные
 const API_BASE = window.__API_URL || '';
 let PRODUCTS = [];
 const defaultProducts = [
@@ -406,7 +478,6 @@ consultModal.addEventListener('click', (e)=>{
   if (e.target === consultModal) closeConsult();
 });
 
-// Кнопка на главном экране
 if (consultBtnMain) {
   consultBtnMain.addEventListener('click', () => openConsult(null));
 }
@@ -442,14 +513,16 @@ consultForm.addEventListener('submit', (e) => {
 });
 
 function showDetail(productId){
-  const p = PRODUCTS.find(x => x.id === productId);
+  const p = products.find(x => x.id === productId);
+  currentIndex = Math.max(0, products.findIndex(x => x.id === productId));
+  currentImageIndex = 0;
+
   if (!p) return showList();
-  const pick = (v) => (typeof v === 'string' ? v : ((v && (v.url || v.path)) || ''));
-  const mainSrc = (Array.isArray(p.imgs) && p.imgs.length)
-    ? pick(p.imgs[0])
-    : (typeof p.img === 'string' ? p.img : '');
-  detailImg.src = mainSrc;
+
+  const img = currentImage(p);
+  detailImg.src = img || (typeof p.img === 'string' ? p.img : '');
   detailImg.alt = p.title;
+
 
   const galleryRootId = 'detailGalleryThumbs';
   let galleryRoot = document.getElementById(galleryRootId);
@@ -508,12 +581,71 @@ function showDetail(productId){
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
 
+  animateCardEnter(detailView);
+  attachSwipe(detailView, {
+    onLeft:  () => goNextCard(),
+    onRight: () => goPrevCard(),
+    min: 28
+  });
+  attachSwipe(detailImg, {
+    onLeft:  () => nextImage(p),
+    onRight: () => prevImage(p),
+    min: 24
+  });
+  detailImg.onclick = () => openGallery(p);
+
   switchViews(listView, detailView);
 }
 
+function goNextCard() {
+  if (!Array.isArray(products) || products.length === 0) return;
+  const next = (currentIndex + 1) % products.length;
+  animateCardLeave(detailView, () => {
+    location.hash = `#/product/${products[next].id}`;
+  });
+}
+
+function goPrevCard() {
+  if (!Array.isArray(products) || products.length === 0) return;
+  const prev = (currentIndex - 1 + products.length) % products.length;
+  animateCardLeave(detailView, () => {
+    location.hash = `#/product/${products[prev].id}`;
+  });
+}
+
+function nextImage(p) {
+  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
+  if (!imgs.length) return;
+  currentImageIndex = (currentImageIndex + 1) % imgs.length;
+  detailImg.classList.remove('img-swipe-left','img-swipe-right');
+  detailImg.classList.add('img-swipe-left');
+
+  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
+
+  detailImg.addEventListener('transitionend', () => {
+    detailImg.classList.remove('img-swipe-left','img-swipe-right');
+  }, { once: true });
+  detailImg.src = src;
+}
+
+function prevImage(p) {
+  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
+  if (!imgs.length) return;
+  currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
+  detailImg.classList.remove('img-swipe-left','img-swipe-right');
+  detailImg.classList.add('img-swipe-right');
+
+  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
+
+  detailImg.addEventListener('transitionend', () => {
+    detailImg.classList.remove('img-swipe-left','img-swipe-right');
+  }, { once: true });
+  detailImg.src = src;
+}
+
 function showList(){
-  backBtn.classList.add('hidden');
-  if (tg?.BackButton?.hide) tg.BackButton.hide();
+  backBtn.classList.remove('hidden');
+  if (tg?.BackButton?.show) tg.BackButton.show();
   switchViews(detailView, listView);
   updateCartUI();
 }
@@ -532,7 +664,6 @@ function handleStartParam(raw){
   if (['tma','tg-bot','tma-chatbot'].includes(id)) location.hash = `#/product/${id}`;
 }
 
-// Инициализация: сначала загружаем продукты с сервера, затем рендерим
 (async function initApp(){
   await loadProducts();
   renderCards();
@@ -650,7 +781,7 @@ function openAdminEdit(id){
   fileInput.addEventListener('change', () => {
     if (fileInput.files && fileInput.files.length) {
       selectedFiles.push(...Array.from(fileInput.files));
-      fileInput.value = ''; // чтобы можно было выбирать те же имена повторно
+      fileInput.value = ''; 
       renderGallery();
       updatePickBtn();
     }
@@ -659,7 +790,6 @@ function openAdminEdit(id){
   function renderGallery(){
     gallery.innerHTML = '';
 
-    // 1) уже загруженные у товара
     imgs.forEach((img, idx) => {
       const src = (typeof img === 'string') ? img : (img.url || '');
       const wrap = document.createElement('div');
@@ -689,7 +819,6 @@ function openAdminEdit(id){
       };
     });
 
-    // 2) локально выбранные (ещё не загруженные)
     selectedFiles.forEach((f, idx) => {
       const url = URL.createObjectURL(f);
       const wrap = document.createElement('div');
@@ -779,9 +908,7 @@ function openAdminEdit(id){
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
 }
 
-// Простая обёртка для экрана админки
 function renderAdmin(){
-  // Уберём прошлую админ-вёрстку (если была)
   const exist = document.getElementById('adminView'); 
   if (exist) exist.remove();
 
@@ -793,21 +920,15 @@ function renderAdmin(){
     <div id="adminEditRoot"></div>
   `;
   document.body.appendChild(view);
-
-  // откроем форму создания/редактирования
   openAdminEdit(null);
 }
 
-// При навигации в админку
 function showAdmin(){
-  // скрыть другие views
   listView.classList.add('hidden'); detailView.classList.add('hidden');
-  // remove existing adminView if any
   const exist = document.getElementById('adminView'); if (exist) exist.remove();
   renderAdmin();
 }
 
-// Обновим роутер чтобы поддержать #/admin
 const _oldRouter = router;
 function router(){
   const hash = location.hash || '#/';
