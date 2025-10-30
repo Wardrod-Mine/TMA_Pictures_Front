@@ -554,16 +554,16 @@ async function ensureAdminButton(){
   try {
     const init_data = window.Telegram?.WebApp?.initData || '';
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
-    const url = new URL('/check_admin', API_BASE);
-    url.searchParams.set('init_data', init_data || '');
-    url.searchParams.set('unsafe', 'true'); // чтобы работал фолбэк при десктопе
-    const res = await fetch(url.toString(), { method: 'GET' });
+    const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ init_data, init_data_unsafe })
+    });
 
     const j = await res.json().catch(()=>({ ok:false }));
     const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
     console.log('[ensureAdminButton] /check_admin ->', j, 'isAdmin=', isAdmin);
     if (j.ok && isAdmin) {
-
       adminBtn.classList.remove('hidden');
       adminBtn.onclick = () => { location.hash = '#/admin'; };
       if (addCardBtn) {
