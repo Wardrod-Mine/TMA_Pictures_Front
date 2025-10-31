@@ -23,6 +23,9 @@
   <script>
     window.__API_URL = 'https://tma-pictures-server.onrender.com';
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+
   <script type="module" src="./app.js?v=13"></script>
 
   <style>
@@ -104,7 +107,9 @@
         <div id="detailLong" class="text-sm leading-relaxed space-y-2"></div>
         <div class="pt-2 flex flex-wrap gap-2">
           <button id="buyBtn" type="button" class="btn rounded-lg px-4 py-2 text-sm">Отправить заявку</button>
+          <button id="openPdfBtn" type="button" class="rounded-lg px-4 py-2 text-sm border" style="border-color:var(--sep)">Открыть PDF</button>
         </div>
+
       </div>
     </article>
   </main>

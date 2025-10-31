@@ -35,8 +35,8 @@ const rUsernamePreview = $('#rUsernamePreview');
 const rCity = $('#rCity');
 const rComment = $('#rComment');
 const consultBtnMain = $('#consultBtnMain');
+const openPdfBtn = $('#openPdfBtn');
 
-// Gallery modal elements
 const galleryModal = document.getElementById('galleryModal');
 const galleryImg   = document.getElementById('galleryImg');
 const galleryClose = document.getElementById('galleryClose');
@@ -50,14 +50,16 @@ function openGallery(p) {
   galleryImg.src = src;
   galleryModal.classList.remove('hidden');
 
-  galleryPrev.onclick = () => { prevImage(p); galleryImg.src = detailImg.src; };
-  galleryNext.onclick = () => { nextImage(p); galleryImg.src = detailImg.src; };
+  galleryPrev.onclick = async () => { await prevImage(p); galleryImg.src = detailImg.src; };
+  galleryNext.onclick = async () => { await nextImage(p); galleryImg.src = detailImg.src; };
+
   galleryClose.onclick = () => galleryModal.classList.add('hidden');
 
   // свайп в модалке
   attachSwipe(galleryModal, {
-    onLeft: () => { nextImage(p); galleryImg.src = detailImg.src; },
-    onRight: () => { prevImage(p); galleryImg.src = detailImg.src; },
+    onLeft: async () => { await nextImage(p); galleryImg.src = detailImg.src; },
+  onRight: async () => { await prevImage(p); galleryImg.src = detailImg.src; },
+
     min: 24
   });
 }
@@ -70,6 +72,51 @@ let currentImageIndex = 0;
 function currentImage(p) {
   const arr = Array.isArray(p.imgs) ? p.imgs : [];
   return arr[currentImageIndex] && (arr[currentImageIndex].url || arr[currentImageIndex]);
+}
+
+function isPdf(src) {
+  return typeof src === 'string' && /\.pdf(\?|#|$)/i.test(src);
+}
+
+async function renderPdfFirstPageToDataUrl(url, scale = 1.5) {
+  if (!window.pdfjsLib) throw new Error('pdfjs not loaded');
+  const pdf = await window.pdfjsLib.getDocument(url).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL('image/png');
+}
+
+async function getVisualSrcFor(p) {
+  const raw = (p && currentImage(p)) || detailImg?.src || '';
+  const src = typeof raw === 'string' ? raw : (raw?.url || raw?.path || '');
+  if (!src) return '';
+  if (isPdf(src)) {
+    try { return await renderPdfFirstPageToDataUrl(src); }
+    catch { return ''; }
+  }
+  return src;
+}
+
+async function setDetailVisual(p, withSwipeClass) {
+  const visual = await getVisualSrcFor(p);
+  if (!visual) return;
+  if (withSwipeClass === 'left') {
+    detailImg.classList.remove('img-swipe-left','img-swipe-right');
+    detailImg.classList.add('img-swipe-left');
+  }
+  if (withSwipeClass === 'right') {
+    detailImg.classList.remove('img-swipe-left','img-swipe-right');
+    detailImg.classList.add('img-swipe-right');
+  }
+  detailImg.addEventListener('transitionend', () => {
+    detailImg.classList.remove('img-swipe-left','img-swipe-right');
+  }, { once: true });
+  detailImg.src = visual;
 }
 
 // Универсальный свайп-лисенер
@@ -520,9 +567,8 @@ function showDetail(productId){
   if (!p) return showList();
 
   const img = currentImage(p);
-  detailImg.src = img || (typeof p.img === 'string' ? p.img : '');
   detailImg.alt = p.title;
-
+  setDetailVisual(p);
 
   const galleryRootId = 'detailGalleryThumbs';
   let galleryRoot = document.getElementById(galleryRootId);
@@ -580,6 +626,16 @@ function showDetail(productId){
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
+
+  if (openPdfBtn) openPdfBtn.onclick = () => {
+    const raw = (p && currentImage(p)) || detailImg?.src || '';
+    const src = typeof raw === 'string' ? raw : (raw?.url || raw?.path || '');
+    if (isPdf(src)) {
+      window.open(src, '_blank', 'noopener');
+    } else {
+      toast('Для текущего слайда нет PDF');
+    }
+  };
 
   animateCardEnter(detailView);
   attachSwipe(detailView, {
@@ -796,9 +852,10 @@ function openAdminEdit(id){
       wrap.className = 'relative rounded overflow-hidden border';
       wrap.style.borderColor = 'var(--sep)';
       wrap.innerHTML = `
-        <img src="${src}" class="w-full h-24 object-cover">
+        <img src="${src}" class="w-full h-24 object-cover" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'320\\' height=\\'180\\'><rect width=\\'100%\\' height=\\'100%\\' fill=\\'%23161b22\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%238b949e\\' dy=\\'.3em\\' font-family=\\'Arial\\' font-size=\\'14\\' text-anchor=\\'middle\\'>Нет изображения</text></svg>'">
         <button data-exist="${idx}" class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Удалить</button>
       `;
+
       gallery.appendChild(wrap);
 
       wrap.querySelector('button').onclick = async () => {
@@ -820,22 +877,28 @@ function openAdminEdit(id){
     });
 
     selectedFiles.forEach((f, idx) => {
-      const url = URL.createObjectURL(f);
-      const wrap = document.createElement('div');
-      wrap.className = 'relative rounded overflow-hidden border';
-      wrap.style.borderColor = 'var(--sep)';
-      wrap.innerHTML = `
-        <img src="${url}" class="w-full h-24 object-cover">
-        <button class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Убрать</button>
-      `;
-      gallery.appendChild(wrap);
+     const wrap = document.createElement('div');
+    wrap.className = 'relative rounded overflow-hidden border';
+    wrap.style.borderColor = 'var(--sep)';
+    wrap.innerHTML = `
+      <img class="w-full h-24 object-cover" alt="">
+      <button class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Убрать</button>
+    `;
+    const imgEl = wrap.querySelector('img');
+    imgEl.onerror = () => {
+      imgEl.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="14" text-anchor="middle">Нет изображения</text></svg>';
+    };
+    const reader = new FileReader();
+    reader.onload = () => { imgEl.src = reader.result; };
+    reader.readAsDataURL(f);
 
-      wrap.querySelector('button').onclick = () => {
-        selectedFiles.splice(idx,1);
-        URL.revokeObjectURL(url);
-        renderGallery();
-        updatePickBtn();
-      };
+    gallery.appendChild(wrap);
+
+    wrap.querySelector('button').onclick = () => {
+      selectedFiles.splice(idx,1);
+      renderGallery();
+      updatePickBtn();
+    };
     });
 
     if (imgs.length === 0 && selectedFiles.length === 0) {
