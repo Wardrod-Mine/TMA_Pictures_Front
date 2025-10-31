@@ -42,6 +42,25 @@ const galleryImg   = document.getElementById('galleryImg');
 const galleryClose = document.getElementById('galleryClose');
 const galleryPrev  = document.getElementById('galleryPrev');
 const galleryNext  = document.getElementById('galleryNext');
+const CACHE_KEY_PRODUCTS = 'tma.products.v1';
+
+// оптимистичное добавление в список и кэш, чтобы не ждать следующей синхронизации
+try {
+  const created = await res.json();
+  if (created && created.id) {
+    PRODUCTS = [created, ...PRODUCTS.filter(x => x.id !== created.id)];
+    saveProductsCache(PRODUCTS);
+    renderCards?.();
+  } else {
+    await loadProducts();
+  }
+} catch {
+  await loadProducts();
+}
+
+function loadProductsCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
+}
 
 function openGallery(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
@@ -252,7 +271,7 @@ if (inTelegram) {
   };
   if (tg?.BackButton) {
     tg.BackButton.onClick(goBack);
-    tg.BackButton.show();
+    tg.BackButton.hide?.();
   }
   tg.onEvent('themeChanged', applyThemeFromTelegram);
   const username = tg.initDataUnsafe?.user?.username;
@@ -262,11 +281,6 @@ if (inTelegram) {
 
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
-
-backBtn.addEventListener('click', () => {
-  if (location.hash.startsWith('#/product/')) location.hash = '#/';
-  else location.hash = '#/';
-});
 
 async function sendToBot(payload) {
   const API = window.__API_URL; 
@@ -319,6 +333,23 @@ let CART = loadCart();
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
 function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
+async function fetchWithRetry(url, opts = {}, retries = 3, delayMs = 700) {
+  let lastErr;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 12000);
+      const res = await fetch(url, { ...opts, signal: ac.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`http_${res.status}`);
+      return res;
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 const API_BASE = window.__API_URL || '';
@@ -327,13 +358,30 @@ const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
 
-async function loadProducts(){
-  try{
-    const res = await fetch(new URL('/products', API_BASE).toString());
-    const data = await res.json().catch(()=>null);
-    if (res.ok && data && Array.isArray(data.products)) { PRODUCTS = data.products; return; }
-  }catch(e){ console.warn('loadProducts error', e); }
-  PRODUCTS = defaultProducts.slice();
+async function loadProducts() {
+  // 1) показать кэш мгновенно (если он есть)
+  const cached = loadProductsCache();
+  if (Array.isArray(cached) && cached.length) {
+    PRODUCTS = cached;
+    renderCards?.();
+  }
+
+  // 2) онлайн-обновление с ретраями
+  try {
+    const res = await fetchWithRetry(API_BASE + '/products', { credentials: 'include' }, 3, 800);
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      PRODUCTS = data;
+      saveProductsCache(PRODUCTS);
+      renderCards?.();
+    } else {
+      console.warn('[loadProducts] non-array payload, keep cache');
+    }
+  } catch (e) {
+    console.warn('[loadProducts] network error, keep cache', e);
+    // НИЧЕГО НЕ ОЧИЩАЕМ — остаёмся на кэше/старом списке
+    toast?.('Нет сети. Показан офлайн-список.');
+  }
 }
 
 async function saveProductToServer(product){
