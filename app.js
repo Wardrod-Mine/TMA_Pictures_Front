@@ -44,22 +44,11 @@ const galleryPrev  = document.getElementById('galleryPrev');
 const galleryNext  = document.getElementById('galleryNext');
 const CACHE_KEY_PRODUCTS = 'tma.products.v1';
 
-// оптимистичное добавление в список и кэш, чтобы не ждать следующей синхронизации
-try {
-  const created = await res.json();
-  if (created && created.id) {
-    PRODUCTS = [created, ...PRODUCTS.filter(x => x.id !== created.id)];
-    saveProductsCache(PRODUCTS);
-    renderCards?.();
-  } else {
-    await loadProducts();
-  }
-} catch {
-  await loadProducts();
-}
-
 function loadProductsCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
+}
+function saveProductsCache(list) {
+  try { localStorage.setItem(CACHE_KEY_PRODUCTS, JSON.stringify(list || [])); } catch {}
 }
 
 function openGallery(p) {
@@ -136,6 +125,12 @@ async function setDetailVisual(p, withSwipeClass) {
     detailImg.classList.remove('img-swipe-left','img-swipe-right');
   }, { once: true });
   detailImg.src = visual;
+}
+
+let __lastNetToast = 0;
+function toastOncePer30s(msg) {
+  const now = Date.now();
+  if (now - __lastNetToast > 30_000) { toast(msg); __lastNetToast = now; }
 }
 
 // Универсальный свайп-лисенер
@@ -359,16 +354,20 @@ const defaultProducts = [
 ];
 
 async function loadProducts() {
-  // 1) показать кэш мгновенно (если он есть)
   const cached = loadProductsCache();
   if (Array.isArray(cached) && cached.length) {
     PRODUCTS = cached;
     renderCards?.();
   }
 
-  // 2) онлайн-обновление с ретраями
+  if (!API_BASE) {
+    // нет сконфигурированного бэка — оставляем кэш/дефолт
+    if (!PRODUCTS.length) { PRODUCTS = (window.defaultProducts || []); renderCards?.(); }
+    return;
+  }
+
   try {
-    const res = await fetchWithRetry(API_BASE + '/products', { credentials: 'include' }, 3, 800);
+    const res = await fetchWithRetry(API_BASE + '/products', { mode: 'cors' }, 2, 600);
     const data = await res.json();
     if (Array.isArray(data)) {
       PRODUCTS = data;
@@ -379,8 +378,8 @@ async function loadProducts() {
     }
   } catch (e) {
     console.warn('[loadProducts] network error, keep cache', e);
-    // НИЧЕГО НЕ ОЧИЩАЕМ — остаёмся на кэше/старом списке
-    toast?.('Нет сети. Показан офлайн-список.');
+    // Не спамим тостом — максимум раз в 30 сек
+    toastOncePer30s('Нет сети. Показан офлайн-список.');
   }
 }
 
@@ -788,9 +787,11 @@ async function ensureAdminButton(){
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
     const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
       method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ init_data, init_data_unsafe })
     });
+
 
     const j = await res.json().catch(()=>({ ok:false }));
     const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
@@ -1005,12 +1006,29 @@ function openAdminEdit(id){
       });
       const j = await res.json().catch(()=>({ ok:false }));
       if (j.ok) {
+        // оптимистично вставляем карточку в список и кэш
+        const created = j.product || j.data || j.item || j.created || payload;
+        if (created && created.id) {
+          const merged = {
+            id: created.id,
+            title: created.title || payload.title || '',
+            shortDescription: created.shortDescription || created.short || payload.shortDescription || '',
+            description: created.description || payload.description || '',
+            imgs: Array.isArray(created.imgs) ? created.imgs : (Array.isArray(payload.imgs) ? payload.imgs : [])
+          };
+          PRODUCTS = [merged, ...PRODUCTS.filter(x => x.id !== merged.id)];
+          try { saveProductsCache(PRODUCTS); } catch {}
+          renderCards?.();
+        }
         alert('Сохранено');
-        await loadProducts(); renderCards(); root.innerHTML = '';
+        // тихо обновим из бэка, чтобы подтянуть серверные поля
+        loadProducts().catch(()=>{});
+        root.innerHTML = '';
       } else {
         alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
       }
-    } catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
+    }
+    catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
 
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
