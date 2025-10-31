@@ -46,9 +46,9 @@ const galleryNext  = document.getElementById('galleryNext');
 function openGallery(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
-  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
-  galleryImg.src = src;
+  galleryImg.src = detailImg.src;
   galleryModal.classList.remove('hidden');
+
 
   galleryPrev.onclick = async () => { await prevImage(p); galleryImg.src = detailImg.src; };
   galleryNext.onclick = async () => { await nextImage(p); galleryImg.src = detailImg.src; };
@@ -560,8 +560,9 @@ consultForm.addEventListener('submit', (e) => {
 });
 
 function showDetail(productId){
-  const p = products.find(x => x.id === productId);
-  currentIndex = Math.max(0, products.findIndex(x => x.id === productId));
+  const p = PRODUCTS.find(x => x.id === productId);
+  currentIndex = Math.max(0, PRODUCTS.findIndex(x => x.id === productId));
+
   currentImageIndex = 0;
 
   if (!p) return showList();
@@ -580,15 +581,19 @@ function showDetail(productId){
   }
   galleryRoot.innerHTML = '';
 
-  (p.imgs || []).forEach((item) => {
-    const src = pick(item);
+  (p.imgs || []).forEach((item, idx) => {
+    const src = (typeof item === 'string') ? item : (item?.url || item?.path || '');
     if (!src) return;
     const tn = document.createElement('img');
     tn.src = src;
     tn.className = 'w-20 h-12 object-cover rounded cursor-pointer border';
-    tn.onclick = () => { detailImg.src = src; };
+    tn.onclick = async () => {
+      currentImageIndex = idx;
+      await setDetailVisual(p);
+    };
     galleryRoot.appendChild(tn);
   });
+
   detailTitle.textContent = p.title;
   detailShort.textContent = (p.shortDescription ?? p.short ?? '').toString();
 
@@ -649,59 +654,44 @@ function showDetail(productId){
     min: 24
   });
   detailImg.onclick = () => openGallery(p);
-
   switchViews(listView, detailView);
 }
 
 function goNextCard() {
-  if (!Array.isArray(products) || products.length === 0) return;
-  const next = (currentIndex + 1) % products.length;
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  const next = (currentIndex + 1) % PRODUCTS.length;
   animateCardLeave(detailView, () => {
-    location.hash = `#/product/${products[next].id}`;
+    location.hash = `#/product/${PRODUCTS[next].id}`;
   });
 }
 
 function goPrevCard() {
-  if (!Array.isArray(products) || products.length === 0) return;
-  const prev = (currentIndex - 1 + products.length) % products.length;
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
   animateCardLeave(detailView, () => {
-    location.hash = `#/product/${products[prev].id}`;
+    location.hash = `#/product/${PRODUCTS[prev].id}`;
   });
 }
 
-function nextImage(p) {
+async function nextImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
   currentImageIndex = (currentImageIndex + 1) % imgs.length;
-  detailImg.classList.remove('img-swipe-left','img-swipe-right');
-  detailImg.classList.add('img-swipe-left');
-
-  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
-
-  detailImg.addEventListener('transitionend', () => {
-    detailImg.classList.remove('img-swipe-left','img-swipe-right');
-  }, { once: true });
-  detailImg.src = src;
+  await setDetailVisual(p, 'left');
 }
 
-function prevImage(p) {
+
+async function prevImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
   currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
-  detailImg.classList.remove('img-swipe-left','img-swipe-right');
-  detailImg.classList.add('img-swipe-right');
-
-  const src = imgs[currentImageIndex].url || imgs[currentImageIndex];
-
-  detailImg.addEventListener('transitionend', () => {
-    detailImg.classList.remove('img-swipe-left','img-swipe-right');
-  }, { once: true });
-  detailImg.src = src;
+  await setDetailVisual(p, 'right');
 }
 
+
 function showList(){
-  backBtn.classList.remove('hidden');
-  if (tg?.BackButton?.show) tg.BackButton.show();
+  backBtn.classList.add('hidden');
+  tg?.BackButton?.hide?.();
   switchViews(detailView, listView);
   updateCartUI();
 }
@@ -723,6 +713,13 @@ function handleStartParam(raw){
 (async function initApp(){
   await loadProducts();
   renderCards();
+  cardsRoot.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#/product/"]');
+    if (!a) return;
+    e.preventDefault();
+    const id = a.getAttribute('href').replace('#/product/','');
+    showDetail(id);
+  });
   updateCartUI();
   handleStartParam(getStartParam());
   ensureAdminButton();
