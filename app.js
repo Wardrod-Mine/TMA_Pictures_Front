@@ -42,7 +42,7 @@ const galleryImg   = document.getElementById('galleryImg');
 const galleryClose = document.getElementById('galleryClose');
 const galleryPrev  = document.getElementById('galleryPrev');
 const galleryNext  = document.getElementById('galleryNext');
-const CACHE_KEY_PRODUCTS = 'tma.products.v1';
+const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
 
 function loadProductsCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
@@ -64,12 +64,14 @@ function openGallery(p) {
   galleryClose.onclick = () => galleryModal.classList.add('hidden');
 
   // свайп в модалке
-  attachSwipe(galleryModal, {
-    onLeft: async () => { await nextImage(p); galleryImg.src = detailImg.src; },
-  onRight: async () => { await prevImage(p); galleryImg.src = detailImg.src; },
-
-    min: 24
-  });
+  if (!galleryModal._swipeBound) {
+    attachSwipe(galleryModal, {
+      onLeft: async () => { await nextImage(p); galleryImg.src = detailImg.src; },
+      onRight: async () => { await prevImage(p); galleryImg.src = detailImg.src; },
+      min: 24
+    });
+    galleryModal._swipeBound = true;
+  }
 }
 
 let requestContext = null;
@@ -361,10 +363,10 @@ async function loadProducts() {
   }
 
   if (!API_BASE) {
-    // нет сконфигурированного бэка — оставляем кэш/дефолт
-    if (!PRODUCTS.length) { PRODUCTS = (window.defaultProducts || []); renderCards?.(); }
+    if (!PRODUCTS.length) { PRODUCTS = defaultProducts; renderCards?.(); }
     return;
   }
+
 
   try {
     const res = await fetchWithRetry(API_BASE + '/products', { mode: 'cors' }, 2, 600);
@@ -492,7 +494,6 @@ function renderCards() {
   });
 }
 
-
 function switchViews(hideEl, showEl) {
   if (hideEl && !hideEl.classList.contains('hidden')) {
     hideEl.classList.remove('view-enter'); hideEl.classList.add('view-leave');
@@ -597,7 +598,7 @@ consultForm.addEventListener('submit', (e) => {
     sendToBot(payload);
     tg?.HapticFeedback?.notificationOccurred?.('success');
     toast('Заявка отправлена');
-    closeRequest();
+    closeConsult();
   } catch (err) {
     console.error('[Request Form] sendData error:', err);
     tg?.HapticFeedback?.notificationOccurred?.('error');
@@ -605,6 +606,43 @@ consultForm.addEventListener('submit', (e) => {
   }
   closeConsult();
 });
+
+function goNextCard() {
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  const next = (currentIndex + 1) % PRODUCTS.length;
+  animateCardLeave(detailView, () => {
+    location.hash = `#/product/${PRODUCTS[next].id}`;
+  });
+}
+
+function goPrevCard() {
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
+  animateCardLeave(detailView, () => {
+    location.hash = `#/product/${PRODUCTS[prev].id}`;
+  });
+}
+
+async function nextImage(p) {
+  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
+  if (!imgs.length) return;
+  currentImageIndex = (currentImageIndex + 1) % imgs.length;
+  await setDetailVisual(p, 'left');
+}
+
+async function prevImage(p) {
+  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
+  if (!imgs.length) return;
+  currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
+  await setDetailVisual(p, 'right');
+}
+
+function showList(){
+  backBtn.classList.add('hidden');
+  tg?.BackButton?.hide?.();
+  switchViews(detailView, listView);
+  updateCartUI();
+}
 
 function showDetail(productId){
   const p = PRODUCTS.find(x => x.id === productId);
@@ -704,44 +742,6 @@ function showDetail(productId){
   switchViews(listView, detailView);
 }
 
-function goNextCard() {
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
-  const next = (currentIndex + 1) % PRODUCTS.length;
-  animateCardLeave(detailView, () => {
-    location.hash = `#/product/${PRODUCTS[next].id}`;
-  });
-}
-
-function goPrevCard() {
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
-  const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
-  animateCardLeave(detailView, () => {
-    location.hash = `#/product/${PRODUCTS[prev].id}`;
-  });
-}
-
-async function nextImage(p) {
-  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
-  if (!imgs.length) return;
-  currentImageIndex = (currentImageIndex + 1) % imgs.length;
-  await setDetailVisual(p, 'left');
-}
-
-
-async function prevImage(p) {
-  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
-  if (!imgs.length) return;
-  currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
-  await setDetailVisual(p, 'right');
-}
-
-
-function showList(){
-  backBtn.classList.add('hidden');
-  tg?.BackButton?.hide?.();
-  switchViews(detailView, listView);
-  updateCartUI();
-}
 
 // ========= РОУТЕР/СТАРТ ================
 function getStartParam(){
@@ -1055,7 +1055,6 @@ function showAdmin(){
   renderAdmin();
 }
 
-const _oldRouter = router;
 function router(){
   const hash = location.hash || '#/';
   if (hash === '#/admin') { showAdmin(); return; }
@@ -1089,4 +1088,3 @@ function openOrderForm(product) {
 try {
   window.removeEventListener('hashchange', _oldRouter);
 } catch {}
-window.addEventListener('hashchange', router);
