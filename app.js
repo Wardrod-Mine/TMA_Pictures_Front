@@ -362,19 +362,9 @@ function applyThemeFromTelegram() {
 applyThemeFromTelegram();
 
 // ============== СОСТОЯНИЕ КОРЗИНЫ/ЗАЯВКИ ===================
-let CART = loadCart();
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
 function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
-async function ensureAdminButton() {
-  try {
-    const r = await fetchWithRetry(`${SERVER_URL}/check_admin`, { method: 'POST', body: '{}' }, 3, 1000);
-    const j = await r.json().catch(() => ({}));
-    if (j?.ok && (j.isAdmin || j.admin)) showAdminButton(); else hideAdminButton();
-  } catch {
-    hideAdminButton(); 
-  }
-}
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
