@@ -43,6 +43,11 @@ const galleryClose = document.getElementById('galleryClose');
 const galleryPrev  = document.getElementById('galleryPrev');
 const galleryNext  = document.getElementById('galleryNext');
 const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
+const adminBtn = document.getElementById('adminBtn');
+const addCardBtn = document.getElementById('addCardBtn');
+
+function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
+function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
 
 function loadProductsCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
@@ -285,35 +290,7 @@ if (inTelegram) {
 
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
-
 const navStack = []; // строки-роуты или объекты состояния
-
-function pushView(state) {
-  navStack.push(state);
-  Telegram.WebApp.BackButton.show();
-}
-
-function canGoBack() {
-  return navStack.length > 1;
-}
-
-function popView() {
-  if (navStack.length > 1) navStack.pop();
-  if (!canGoBack()) Telegram.WebApp.BackButton.hide();
-  renderCurrent(); // твоя функция отрисовки на основе navStack.at(-1)
-}
-
-// инициализация
-Telegram.WebApp.BackButton.onClick(() => {
-  if (canGoBack()) popView();
-  else Telegram.WebApp.BackButton.hide(); // не закрываем WebApp
-});
-
-// при старте положить корневое состояние и скрыть кнопку
-navStack.length = 0;
-navStack.push({ view: 'catalog' });
-Telegram.WebApp.BackButton.hide();
-renderCurrent();
 
 async function sendToBot(payload) {
   const API = window.__API_URL; 
@@ -468,7 +445,7 @@ function renderCards() {
         if (v && typeof v === 'object') return v.url || v.path || '';
       }
       if (typeof prod.img === 'string') return prod.img;
-      return './assets/cards/placeholder.jpg';
+      return './assets/placeholder.jpg';
     }
     img.src = firstImg(p);
     img.alt = p.title;
@@ -812,6 +789,33 @@ function handleStartParam(raw){
   if (['tma','tg-bot','tma-chatbot'].includes(id)) location.hash = `#/product/${id}`;
 }
 
+async function ensureAdminButton() {
+  try {
+    const API = (typeof __API_URL === 'string' && __API_URL) || '';
+    if (!API) return hideAdminButton?.();
+
+    const init_data = window.Telegram?.WebApp?.initData || '';
+    const res = await fetch(new URL('/check_admin', API).toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Telegram-Init-Data': init_data
+      },
+      body: JSON.stringify({ init_data })
+    });
+
+    const j = await res.json().catch(() => ({}));
+    window.__isAdmin = Boolean(j?.ok && j?.isAdmin);
+
+    if (window.__isAdmin) showAdminButton?.(); else hideAdminButton?.();
+    // перерисовать, чтобы кнопки "Редактировать/Удалить" появились
+    renderCards?.();
+  } catch {
+    window.__isAdmin = false;
+    hideAdminButton?.();
+  }
+}
+
 (async function initApp(){
   await loadProducts();
   renderCards();
@@ -830,7 +834,6 @@ function handleStartParam(raw){
 })();
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
-const adminBtn = document.getElementById('adminBtn');
 async function ensureAdminButton(){
   if (!adminBtn) return;
   adminBtn.classList.add('hidden');
