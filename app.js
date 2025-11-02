@@ -286,6 +286,35 @@ if (inTelegram) {
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
 
+const navStack = []; // строки-роуты или объекты состояния
+
+function pushView(state) {
+  navStack.push(state);
+  Telegram.WebApp.BackButton.show();
+}
+
+function canGoBack() {
+  return navStack.length > 1;
+}
+
+function popView() {
+  if (navStack.length > 1) navStack.pop();
+  if (!canGoBack()) Telegram.WebApp.BackButton.hide();
+  renderCurrent(); // твоя функция отрисовки на основе navStack.at(-1)
+}
+
+// инициализация
+Telegram.WebApp.BackButton.onClick(() => {
+  if (canGoBack()) popView();
+  else Telegram.WebApp.BackButton.hide(); // не закрываем WebApp
+});
+
+// при старте положить корневое состояние и скрыть кнопку
+navStack.length = 0;
+navStack.push({ view: 'catalog' });
+Telegram.WebApp.BackButton.hide();
+renderCurrent();
+
 async function sendToBot(payload) {
   const API = window.__API_URL; 
   try {
@@ -337,22 +366,14 @@ let CART = loadCart();
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
 function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
-async function fetchWithRetry(url, opts = {}, retries = 3, delayMs = 700) {
-  let lastErr;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), 12000);
-      const res = await fetch(url, { ...opts, signal: ac.signal });
-      clearTimeout(t);
-      if (!res.ok) throw new Error(`http_${res.status}`);
-      return res;
-    } catch (e) {
-      lastErr = e;
-      await new Promise(r => setTimeout(r, delayMs * (i + 1)));
-    }
+async function ensureAdminButton() {
+  try {
+    const r = await fetchWithRetry(`${SERVER_URL}/check_admin`, { method: 'POST', body: '{}' }, 3, 1000);
+    const j = await r.json().catch(() => ({}));
+    if (j?.ok && (j.isAdmin || j.admin)) showAdminButton(); else hideAdminButton();
+  } catch {
+    hideAdminButton(); 
   }
-  throw lastErr;
 }
 
 // ============ ДАННЫЕ ТОВАРОВ ================
@@ -510,7 +531,27 @@ function renderCards() {
         location.hash = '#/admin';
         setTimeout(() => openAdminEdit(p.id), 0);
       };
-      body.append(editBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = 'Удалить';
+      delBtn.className = 'rounded-lg px-3 py-1 text-xs border ml-2 text-red-400 hover:text-red-500';
+      delBtn.style.borderColor = 'var(--sep)';
+      delBtn.onclick = async (e) => {
+        e.preventDefault();
+        if (!confirm(`Удалить «${p.title}»?`)) return;
+        const r = await deleteProductOnServer(p.id);
+        if (r?.ok) {
+          PRODUCTS = PRODUCTS.filter(x => x.id !== p.id);
+          saveProductsCache(PRODUCTS);
+          renderCards();
+          toast('Удалено');
+        } else {
+          toast('Ошибка удаления');
+        }
+      };
+
+      body.append(editBtn, delBtn);
     }
 
     card.append(link, body);
