@@ -50,6 +50,13 @@ function loadProductsCache() {
 function saveProductsCache(list) {
   try { localStorage.setItem(CACHE_KEY_PRODUCTS, JSON.stringify(list || [])); } catch {}
 }
+function normalizeProducts(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.items))     return payload.items;
+  if (payload && Array.isArray(payload.data))      return payload.data;
+  if (payload && Array.isArray(payload.products))  return payload.products;
+  return [];
+}
 
 function openGallery(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
@@ -349,39 +356,43 @@ async function fetchWithRetry(url, opts = {}, retries = 3, delayMs = 700) {
 }
 
 // ============ ДАННЫЕ ТОВАРОВ ================
-const API_BASE = window.__API_URL || '';
+const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
+const PRODUCTS_URL = API_BASE ? new URL('/products', API_BASE).toString() : '';
+const CREATE_URL   = API_BASE ? new URL('/product',  API_BASE).toString() : '';
 let PRODUCTS = [];
 const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
 
 async function loadProducts() {
+  // 0) показать кэш мгновенно
   const cached = loadProductsCache();
-  if (Array.isArray(cached) && cached.length) {
-    PRODUCTS = cached;
-    renderCards?.();
-  }
+  if (Array.isArray(cached) && cached.length) { PRODUCTS = cached; renderCards?.(); }
 
-  if (!API_BASE) {
-    if (!PRODUCTS.length) { PRODUCTS = defaultProducts; renderCards?.(); }
+  // 1) без бэка – используем дефолт
+  if (!API_BASE || !PRODUCTS_URL) {
+    if (!PRODUCTS.length && typeof defaultProducts !== 'undefined') {
+      PRODUCTS = defaultProducts;
+      renderCards?.();
+    }
     return;
   }
 
-
+  // 2) онлайн-обновление
   try {
-    const res = await fetchWithRetry(API_BASE + '/products', { mode: 'cors' }, 2, 600);
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      PRODUCTS = data;
+    const res = await fetchWithRetry(PRODUCTS_URL, { mode: 'cors' }, 2, 700);
+    const json = await res.json();
+    const list = normalizeProducts(json);
+    if (Array.isArray(list) && list.length >= 0) {
+      PRODUCTS = list;
       saveProductsCache(PRODUCTS);
       renderCards?.();
     } else {
-      console.warn('[loadProducts] non-array payload, keep cache');
+      console.warn('[loadProducts] payload not list → keep cache');
     }
   } catch (e) {
-    console.warn('[loadProducts] network error, keep cache', e);
-    // Не спамим тостом — максимум раз в 30 сек
-    toastOncePer30s('Нет сети. Показан офлайн-список.');
+    console.warn('[loadProducts] network error → keep cache', e);
+    toastOncePer30s?.('Нет сети. Показан офлайн-список.');
   }
 }
 
@@ -488,6 +499,19 @@ function renderCards() {
     more.className = 'link text-sm';
 
     body.append(h3, small, more);
+    if (window.__isAdmin) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.textContent = 'Редактировать';
+      editBtn.className = 'rounded-lg px-3 py-1 text-xs border ml-2';
+      editBtn.style.borderColor = 'var(--sep)';
+      editBtn.onclick = (e) => {
+        e.preventDefault();
+        location.hash = '#/admin';
+        setTimeout(() => openAdminEdit(p.id), 0);
+      };
+      body.append(editBtn);
+    }
 
     card.append(link, body);
     cardsRoot.appendChild(card);
@@ -797,13 +821,17 @@ async function ensureAdminButton(){
     const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
     console.log('[ensureAdminButton] /check_admin ->', j, 'isAdmin=', isAdmin);
     if (j.ok && isAdmin) {
+      window.__isAdmin = true;
       adminBtn.classList.remove('hidden');
       adminBtn.onclick = () => { location.hash = '#/admin'; };
       if (addCardBtn) {
         addCardBtn.classList.remove('hidden');
         addCardBtn.onclick = () => { location.hash = '#/admin'; };
       }
+    } else {
+      window.__isAdmin = false;
     }
+
   } catch (e) {
     console.warn('check_admin error', e);
   }
@@ -990,6 +1018,9 @@ function openAdminEdit(id){
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn?.setAttribute('disabled','disabled');
+
     const idv = form.id.value.trim();
     const payload = {
       id: idv || ('p_' + Date.now()),
@@ -999,36 +1030,59 @@ function openAdminEdit(id){
       imgs
     };
     const init_data = window.Telegram?.WebApp?.initData || '';
-    try{
+
+    try {
       const res = await fetch(new URL('/products', API_BASE).toString(), {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ init_data, product: payload })
       });
-      const j = await res.json().catch(()=>({ ok:false }));
-      if (j.ok) {
-        // оптимистично вставляем карточку в список и кэш
-        const created = j.product || j.data || j.item || j.created || payload;
-        if (created && created.id) {
-          const merged = {
-            id: created.id,
-            title: created.title || payload.title || '',
-            shortDescription: created.shortDescription || created.short || payload.shortDescription || '',
-            description: created.description || payload.description || '',
-            imgs: Array.isArray(created.imgs) ? created.imgs : (Array.isArray(payload.imgs) ? payload.imgs : [])
-          };
-          PRODUCTS = [merged, ...PRODUCTS.filter(x => x.id !== merged.id)];
-          try { saveProductsCache(PRODUCTS); } catch {}
-          renderCards?.();
-        }
-        alert('Сохранено');
-        // тихо обновим из бэка, чтобы подтянуть серверные поля
-        loadProducts().catch(()=>{});
-        root.innerHTML = '';
-      } else {
-        alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
+
+      const j = await res.json().catch(()=> ({}));
+      if (!res.ok || j.ok === false) {
+        toast('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
+        submitBtn?.removeAttribute('disabled');
+        return;
       }
+
+      const created = j.product || j.data || j.item || j.created || j || {};
+      const tmpId = 'tmp_' + Date.now();
+
+      const base = {
+        id: created.id || payload.id || tmpId,
+        title: created.title ?? payload.title ?? '',
+        shortDescription: created.shortDescription ?? created.short ?? payload.shortDescription ?? '',
+        description: created.description ?? payload.description ?? '',
+        imgs: Array.isArray(created.imgs) ? created.imgs
+            : Array.isArray(payload.imgs) ? payload.imgs : []
+      };
+
+      // оптимистично в список + кэш
+      PRODUCTS = [base, ...PRODUCTS.filter(x => x.id !== base.id)];
+      saveProductsCache(PRODUCTS);
+      renderCards?.();
+
+      // закрыть форму и перейти на карточку
+      toast('Сохранено');
+      root.innerHTML = '';
+      location.hash = `#/product/${base.id}`;
+
+      // фоновая синхронизация: если сервер вернёт «настоящий» id — переоткроем
+      loadProducts().then(() => {
+        const real = PRODUCTS.find(x =>
+          (x.title||'') === (base.title||'') &&
+          (x.shortDescription||x.short||'') === (base.shortDescription||base.short||'')
+        );
+        if (real && real.id && real.id !== base.id) {
+          location.hash = `#/product/${real.id}`;
+        }
+      }).catch(()=>{});
+    } catch (e2) {
+      console.error('save product error', e2);
+      toast('Ошибка сохранения');
+    } finally {
+      submitBtn?.removeAttribute('disabled');
     }
-    catch(e){ console.error('save product error', e); alert('Ошибка сохранения'); }
   });
 
   root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
@@ -1042,10 +1096,16 @@ function renderAdmin(){
   view.id = 'adminView';
   view.className = 'max-w-5xl mx-auto p-4 fade-in';
   view.innerHTML = `
-    <h2 class="text-lg font-semibold mb-3">Админка: карточки</h2>
+    <div class="flex items-center gap-3 mb-3">
+      <button id="adminBackBtn" class="rounded-lg px-3 py-2 text-sm border" style="border-color:var(--sep)">Назад</button>
+      <h2 class="text-lg font-semibold">Админка: карточки</h2>
+    </div>
     <div id="adminEditRoot"></div>
   `;
+
   document.body.appendChild(view);
+  const __ab = document.getElementById('adminBackBtn');
+  if (__ab) __ab.onclick = () => { location.hash = '#/'; };
   openAdminEdit(null);
 }
 
@@ -1053,6 +1113,7 @@ function showAdmin(){
   listView.classList.add('hidden'); detailView.classList.add('hidden');
   const exist = document.getElementById('adminView'); if (exist) exist.remove();
   renderAdmin();
+  try { tg?.BackButton?.show?.(); } catch {}
 }
 
 function router(){
@@ -1084,7 +1145,3 @@ function openOrderForm(product) {
     Telegram.WebApp.close();
   };
 }
-
-try {
-  window.removeEventListener('hashchange', _oldRouter);
-} catch {}
