@@ -777,10 +777,12 @@ function showDetail(productId){
       });
   }
   backBtn.classList.remove('hidden');
-  if (tg?.BackButton?.show) tg.BackButton.show();
+  tg?.BackButton?.hide?.();
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
+  addToCartBtn.onclick = () => addToCart(p);
+  const openPdfBtn = document.getElementById('openPdfBtn');
 
   if (openPdfBtn) openPdfBtn.onclick = () => {
     const raw = (p && currentImage(p)) || detailImg?.src || '';
