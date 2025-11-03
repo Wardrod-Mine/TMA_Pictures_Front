@@ -9,7 +9,7 @@ const detailShort = $('#detailShort');
 const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
-const backBtn = $('#backBtn');         
+const backBtn = document.getElementById('backBtn');       
 const consultBtn = $('#consultBtn');
 const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
@@ -289,25 +289,29 @@ requestForm.addEventListener('submit', (e) => {
 if (inTelegram) {
   tg.ready();
   tg.expand();
+  usernameSlot.textContent = tg.initDataUnsafe.user?.username
+    ? `@${tg.initDataUnsafe.user.username}`
+    : 'без username';
 
+  // своя логика "назад"
   const goBack = () => {
-    const h = location.hash || '#/';
-    if (h.startsWith('#/product/') || h.startsWith('#/admin')) {
+    const hash = location.hash || '#/';
+    if (hash.startsWith('#/product/')) {
+      showList();
+    } else if (hash === '#/admin' || hash === '#/add') {
       location.hash = '#/';
+    } else {
       return;
     }
   };
 
   tg.BackButton?.onClick(goBack);
   tg.BackButton?.hide?.();
-  tg.onEvent('themeChanged', applyThemeFromTelegram);
-
-  const username = tg.initDataUnsafe?.user?.username;
-  if (username) usernameSlot.textContent = `@${username}`;
-
   backBtn?.addEventListener('click', goBack);
+
+  tg.onEvent('themeChanged', applyThemeFromTelegram);
 } else {
-  usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
+  backBtn?.addEventListener('click', () => { location.hash = '#/'; });
 }
 
 
@@ -711,9 +715,9 @@ async function prevImage(p) {
   await setDetailVisual(p, 'right');
 }
 
-function showList(){
+function showList() {
   backBtn.classList.add('hidden');
-  tg?.BackButton?.hide?.();
+  tg?.BackButton?.hide?.();        
   switchViews(detailView, listView);
   updateCartUI();
 }
@@ -785,8 +789,9 @@ function showDetail(productId){
         detailLong.appendChild(el);
       });
   }
-  backBtn.classList.remove('hidden');
-  tg?.BackButton?.hide?.();
+  backBtn.classList.remove('hidden');        // показываем кнопку на карточке
+  tg?.BackButton?.hide?.();                  // системная скрыта
+  switchViews(listView, detailView);
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
@@ -846,9 +851,28 @@ function handleStartParam(raw){
   updateCartUI();
   handleStartParam(getStartParam());
   ensureAdminButton();
-  window.addEventListener('hashchange', () => { router(); tg?.BackButton?.hide?.(); });
+  window.addEventListener('hashchange', () => {
+    router();
+    tg?.BackButton?.hide?.(); // принудительно прячем системную
+  });
   router();
 })();
+
+function router(){
+  const hash = location.hash || '#/';
+  if (hash === '#/' || hash === '') {
+    showList();
+  } else if (hash.startsWith('#/product/')) {
+    const id = hash.replace('#/product/','');
+    showDetail(id);
+  } else if (hash === '#/admin') {
+    switchViews(listView, adminView);
+    setTimeout(() => openAdminEdit(null), 0);
+  } else if (hash === '#/add') {
+    switchViews(listView, adminView);
+    setTimeout(() => openAdminEdit(null), 0);
+  }
+}
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
 async function ensureAdminButton(){
