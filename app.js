@@ -862,10 +862,10 @@ async function ensureAdminButton(){
   const show = () => { $admin?.classList.remove('hidden'); $add?.classList.remove('hidden'); };
   const hide = () => { $admin?.classList.add('hidden');  $add?.classList.add('hidden');  };
 
-  // 1) нет initData → точно не админ
   if (!init_data) {
-    console.warn('[admin] no initData → hide');
+    window.__isAdmin = false;
     hide();
+    renderCards();          // ← перерендер без кнопок
     return;
   }
 
@@ -876,17 +876,14 @@ async function ensureAdminButton(){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ init_data, init_data_unsafe })
     });
-
     const j = await res.json().catch(() => null);
-    console.log('[admin] /check_admin response:', j);
-
-    const isAdmin = Boolean(j && j.ok && j.isAdmin);
-    if (isAdmin) show(); else hide();
-    window.__isAdmin = isAdmin;
-  } catch (e) {
-    console.warn('[admin] check failed:', e);
+    window.__isAdmin = Boolean(j && j.ok && j.isAdmin);
+    if (window.__isAdmin) show(); else hide();
+    renderCards();          // ← перерендер с/без кнопок
+  } catch {
     window.__isAdmin = false;
     hide();
+    renderCards();          // ← перерендер без кнопок
   }
 }
 
