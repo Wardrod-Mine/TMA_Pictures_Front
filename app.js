@@ -45,6 +45,7 @@ const galleryNext  = document.getElementById('galleryNext');
 const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
 const adminBtn = document.getElementById('adminBtn');
 const addCardBtn = document.getElementById('addCardBtn');
+const addToCartBtn = $('#addToCartBtn');
 
 adminBtn?.addEventListener('click', (e) => {
   e.preventDefault();
@@ -289,10 +290,10 @@ if (inTelegram) {
   tg.ready();
   tg.expand();
   const goBack = () => {
-    if (location.hash && location.hash !== '#/') {
+    const h = location.hash || '#/';
+    if (h.startsWith('#/product') || h.startsWith('#/admin')) {
       location.hash = '#/';
-    } else {
-      tg?.close?.();
+      return;
     }
   };
   if (tg?.BackButton) {
@@ -307,7 +308,7 @@ if (inTelegram) {
 
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
-const navStack = []; // строки-роуты или объекты состояния
+const navStack = [];
 
 async function sendToBot(payload) {
   const API = window.__API_URL; 
@@ -355,17 +356,24 @@ function applyThemeFromTelegram() {
 }
 applyThemeFromTelegram();
 
-// ============== СОСТОЯНИЕ КОРЗИНЫ/ЗАЯВКИ ===================
+// ============ КОРЗИНА ====================
 let CART = loadCart();
 function updateCartUI(){
-  const n = CART.items.length;
-  cartCount.textContent = String(n);
-  cartBtn.classList.toggle('hidden', n === 0);
+  const count = CART.items.length;
+  if (count > 0) {
+    cartCount.textContent = count > 99 ? '99+' : String(count);
+    cartCount.classList.remove('hidden');
+    cartBtn.classList.remove('muted');
+  } else {
+    cartCount.classList.add('hidden');
+    cartBtn.classList.add('muted');
+  }
 }
+updateCartUI();
 
-function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
-function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
-function inCart(id){ return CART.items.some(x => x.id === id); }
+function loadCart(){ try{ const data = sessionStorage.getItem('cart'); return data ? JSON.parse(data) : { items:[] }; }catch(e){ return { items:[] }; } }
+function saveCart(){ try{ sessionStorage.setItem('cart', JSON.stringify(CART)); }catch(e){} }
+function inCart(id){ return CART.items.findIndex(x => x.id === id) >= 0; }
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
