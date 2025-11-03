@@ -46,6 +46,16 @@ const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
 const adminBtn = document.getElementById('adminBtn');
 const addCardBtn = document.getElementById('addCardBtn');
 
+adminBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  location.hash = '#/admin';
+});
+
+addCardBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  location.hash = '#/admin';
+});
+
 function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
 function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
 
