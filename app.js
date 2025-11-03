@@ -1068,12 +1068,15 @@ function openAdminEdit(id){
     const init_data = window.Telegram?.WebApp?.initData || '';
 
     try {
-      const res = await fetch(new URL('/products', API_BASE).toString(), {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+      const url = new URL('/products', API_BASE).toString();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Telegram-Init-Data': init_data
+        },
         body: JSON.stringify({ init_data, product: payload })
       });
-
       const j = await res.json().catch(()=> ({}));
       if (!res.ok || j.ok === false) {
         toast('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
