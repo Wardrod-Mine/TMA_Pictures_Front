@@ -421,8 +421,8 @@ async function loadProducts() {
   }
 }
 
-async function saveProductToServer(product) {
-  try {
+async function saveProductToServer(product){
+  try{
     const init_data = window.Telegram?.WebApp?.initData || '';
     const url = new URL('/products', API_BASE).toString();
     const res = await fetch(url, {
@@ -433,17 +433,11 @@ async function saveProductToServer(product) {
       },
       body: JSON.stringify({ init_data, product })
     });
-    const j = await res.json().catch(() => ({ ok: false }));
-    if (!j.ok) {
-      alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
-    }
+    const j = await res.json().catch(()=>({ok:false}));
+    if (!j.ok) alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
     return j;
-  } catch (e) {
-    console.error('saveProductToServer error', e);
-    return { ok: false };
-  }
+  }catch(e){ console.error('saveProductToServer error', e); return { ok:false }; }
 }
-
 
 async function deleteProductOnServer(id){
   try{
