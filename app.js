@@ -49,6 +49,10 @@ const addCardBtn = document.getElementById('addCardBtn');
 function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
 function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
 
+const PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="#161b22"/><text x="50%" y="50%" fill="#8b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>');
+
 function loadProductsCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
 }
@@ -339,6 +343,13 @@ function applyThemeFromTelegram() {
 applyThemeFromTelegram();
 
 // ============== СОСТОЯНИЕ КОРЗИНЫ/ЗАЯВКИ ===================
+let CART = loadCart();
+function updateCartUI(){
+  const n = CART.items.length;
+  cartCount.textContent = String(n);
+  cartBtn.classList.toggle('hidden', n === 0);
+}
+
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
 function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
@@ -351,6 +362,19 @@ let PRODUCTS = [];
 const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
+
+async function fetchWithRetry(url, opts = {}, retries = 2, delay = 700){
+  for (let i = 0; i <= retries; i++){
+    try{
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    }catch(e){
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
 
 async function loadProducts() {
   // 0) показать кэш мгновенно
@@ -435,7 +459,7 @@ function renderCards() {
         if (v && typeof v === 'object') return v.url || v.path || '';
       }
       if (typeof prod.img === 'string') return prod.img;
-      return './assets/placeholder.jpg';
+      return PLACEHOLDER;
     }
     img.src = firstImg(p);
     img.alt = p.title;
