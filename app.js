@@ -49,6 +49,9 @@ const addCardBtn = document.getElementById('addCardBtn');
 function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
 function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
 
+document.getElementById('adminBtn')?.classList.add('hidden');
+document.getElementById('addCardBtn')?.classList.add('hidden');
+
 const PLACEHOLDER =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="#161b22"/><text x="50%" y="50%" fill="#8b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>');
@@ -822,14 +825,24 @@ function handleStartParam(raw){
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
 async function ensureAdminButton(){
-  if (!adminBtn) return;
-  adminBtn.classList.add('hidden');
-  const addCardBtn = document.getElementById('addCardBtn');
-  if (addCardBtn) addCardBtn.classList.add('hidden');
+  const tg = window.Telegram?.WebApp;
+  const init_data = tg?.initData || '';
+  const init_data_unsafe = tg?.initDataUnsafe || null;
+
+  const $admin = document.getElementById('adminBtn');
+  const $add   = document.getElementById('addCardBtn');
+
+  const show = () => { $admin?.classList.remove('hidden'); $add?.classList.remove('hidden'); };
+  const hide = () => { $admin?.classList.add('hidden');  $add?.classList.add('hidden');  };
+
+  // 1) нет initData → точно не админ
+  if (!init_data) {
+    console.warn('[admin] no initData → hide');
+    hide();
+    return;
+  }
 
   try {
-    const init_data = window.Telegram?.WebApp?.initData || '';
-    const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
     const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
       method: 'POST',
       mode: 'cors',
@@ -837,24 +850,16 @@ async function ensureAdminButton(){
       body: JSON.stringify({ init_data, init_data_unsafe })
     });
 
+    const j = await res.json().catch(() => null);
+    console.log('[admin] /check_admin response:', j);
 
-    const j = await res.json().catch(()=>({ ok:false }));
-    const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
-    console.log('[ensureAdminButton] /check_admin ->', j, 'isAdmin=', isAdmin);
-    if (j.ok && isAdmin) {
-      window.__isAdmin = true;
-      adminBtn.classList.remove('hidden');
-      adminBtn.onclick = () => { location.hash = '#/admin'; };
-      if (addCardBtn) {
-        addCardBtn.classList.remove('hidden');
-        addCardBtn.onclick = () => { location.hash = '#/admin'; };
-      }
-    } else {
-      window.__isAdmin = false;
-    }
-
+    const isAdmin = Boolean(j && j.ok && j.isAdmin);
+    if (isAdmin) show(); else hide();
+    window.__isAdmin = isAdmin;
   } catch (e) {
-    console.warn('check_admin error', e);
+    console.warn('[admin] check failed:', e);
+    window.__isAdmin = false;
+    hide();
   }
 }
 
