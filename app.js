@@ -46,16 +46,6 @@ const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
 const adminBtn = document.getElementById('adminBtn');
 const addCardBtn = document.getElementById('addCardBtn');
 
-// Глобальный плейсхолдер для отсутствующих изображений
-const PLACEHOLDER =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="#222"/><text x="50%" y="50%" fill="#bbb" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20">Нет изображения</text></svg>');
-
-function safeSrc(src){
-  if (!src || typeof src !== 'string') return PLACEHOLDER;
-  return src;
-}
-
 function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
 function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
 
@@ -126,10 +116,10 @@ async function renderPdfFirstPageToDataUrl(url, scale = 1.5) {
 async function getVisualSrcFor(p) {
   const raw = (p && currentImage(p)) || detailImg?.src || '';
   const src = typeof raw === 'string' ? raw : (raw?.url || raw?.path || '');
-  if (!src) return PLACEHOLDER;
+  if (!src) return '';
   if (isPdf(src)) {
     try { return await renderPdfFirstPageToDataUrl(src); }
-    catch { return PLACEHOLDER; }
+    catch { return ''; }
   }
   return src;
 }
@@ -300,6 +290,7 @@ if (inTelegram) {
 
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
+const navStack = []; // строки-роуты или объекты состояния
 
 async function sendToBot(payload) {
   const API = window.__API_URL; 
@@ -348,16 +339,9 @@ function applyThemeFromTelegram() {
 applyThemeFromTelegram();
 
 // ============== СОСТОЯНИЕ КОРЗИНЫ/ЗАЯВКИ ===================
-let CART = loadCart();
 function loadCart(){ try{ return JSON.parse(sessionStorage.getItem('cart') || '{"items":[]}'); }catch(e){ return {items:[]}; } }
 function saveCart(){ sessionStorage.setItem('cart', JSON.stringify(CART)); }
 function inCart(id){ return CART.items.some(x => x.id === id); }
-function updateCartUI(){
-  const n = CART.items.length;
-  cartCount.textContent = String(n);
-  cartBtn.classList.toggle('hidden', n === 0);
-}
-updateCartUI();      
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
@@ -367,19 +351,6 @@ let PRODUCTS = [];
 const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
-
-async function fetchWithRetry(url, opts = {}, retries = 2, delay = 700){
-  for (let i = 0; i <= retries; i++){
-    try{
-      const res = await fetch(url, opts);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res;
-    }catch(e){
-      if (i === retries) throw e;
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-}
 
 async function loadProducts() {
   // 0) показать кэш мгновенно
@@ -441,16 +412,6 @@ function toast(msg){
   setTimeout(()=>{ toastEl.style.opacity='0'; setTimeout(()=>toastEl.classList.add('hidden'),200); },1600);
 }
 
-function updateCartUI(){
-  const n = CART.items.length;
-  cartCount.textContent = n;
-  if (n>0) {
-    cartBtn.classList.remove('hidden');
-  } else {
-    cartBtn.classList.add('hidden');
-  }
-}
-
 // ============ КАРТОЧКИ =================
 function renderCards() {
   cardsRoot.innerHTML = '';
@@ -474,13 +435,28 @@ function renderCards() {
         if (v && typeof v === 'object') return v.url || v.path || '';
       }
       if (typeof prod.img === 'string') return prod.img;
-      return PLACEHOLDER;
+      return './assets/placeholder.jpg';
     }
     img.src = firstImg(p);
     img.alt = p.title;
     img.loading = 'lazy';
     img.className = 'w-full img-cover';
-    img.onerror = () => { img.src = PLACEHOLDER; };
+    img.onerror = () => {
+      if (!p || typeof p.img !== 'string') {
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
+        return;
+      }
+      if (p.img.endsWith('.png')) {
+        const jpg = p.img.replace('.png', '.jpg');
+        img.onerror = () => {
+          console.warn('Image not found:', p.img, 'and', jpg);
+          img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
+        };
+        img.src = jpg;
+      } else {
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
+      }
+    };
 
     link.appendChild(img);
 
@@ -821,6 +797,42 @@ function handleStartParam(raw){
 })();
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
+async function ensureAdminButton(){
+  if (!adminBtn) return;
+  adminBtn.classList.add('hidden');
+  const addCardBtn = document.getElementById('addCardBtn');
+  if (addCardBtn) addCardBtn.classList.add('hidden');
+
+  try {
+    const init_data = window.Telegram?.WebApp?.initData || '';
+    const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
+    const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ init_data, init_data_unsafe })
+    });
+
+
+    const j = await res.json().catch(()=>({ ok:false }));
+    const isAdmin = (typeof j.isAdmin !== 'undefined') ? j.isAdmin : !!j.admin;
+    console.log('[ensureAdminButton] /check_admin ->', j, 'isAdmin=', isAdmin);
+    if (j.ok && isAdmin) {
+      window.__isAdmin = true;
+      adminBtn.classList.remove('hidden');
+      adminBtn.onclick = () => { location.hash = '#/admin'; };
+      if (addCardBtn) {
+        addCardBtn.classList.remove('hidden');
+        addCardBtn.onclick = () => { location.hash = '#/admin'; };
+      }
+    } else {
+      window.__isAdmin = false;
+    }
+
+  } catch (e) {
+    console.warn('check_admin error', e);
+  }
+}
 
 function openAdminEdit(id){
   let p = id ? PRODUCTS.find(x=>x.id===id) : null;
