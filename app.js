@@ -289,26 +289,27 @@ requestForm.addEventListener('submit', (e) => {
 if (inTelegram) {
   tg.ready();
   tg.expand();
+
   const goBack = () => {
     const h = location.hash || '#/';
-    if (h.startsWith('#/product') || h.startsWith('#/admin')) {
+    if (h.startsWith('#/product/') || h.startsWith('#/admin')) {
       location.hash = '#/';
       return;
     }
   };
-  if (tg?.BackButton) {
-    tg.BackButton.onClick(goBack);
-    tg.BackButton.hide?.();
-  }
+
+  tg.BackButton?.onClick(goBack);
+  tg.BackButton?.hide?.();
   tg.onEvent('themeChanged', applyThemeFromTelegram);
+
   const username = tg.initDataUnsafe?.user?.username;
   if (username) usernameSlot.textContent = `@${username}`;
+
   backBtn?.addEventListener('click', goBack);
 } else {
-
   usernameSlot.textContent = 'Откройте через Telegram для полного функционала';
 }
-const navStack = [];
+
 
 async function sendToBot(payload) {
   const API = window.__API_URL; 
@@ -845,7 +846,7 @@ function handleStartParam(raw){
   updateCartUI();
   handleStartParam(getStartParam());
   ensureAdminButton();
-  window.addEventListener('hashchange', router);
+  window.addEventListener('hashchange', () => { router(); tg?.BackButton?.hide?.(); });
   router();
 })();
 
