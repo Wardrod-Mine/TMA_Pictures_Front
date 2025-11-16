@@ -713,7 +713,7 @@ function updateUnifiedNav() {
     unifiedNavBtn.onclick = () => {
       const el = document.getElementById('adminView');
       if (el) el.remove();
-      renderCards();
+      showList();
     };
     return;
   }
@@ -746,7 +746,7 @@ function updateUnifiedNav() {
   if (detailView && !detailView.classList.contains('hidden')) {
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'К списку';
-    unifiedNavBtn.onclick = () => { renderCards(); };
+    unifiedNavBtn.onclick = () => { showList(); };
     return;
   }
 
@@ -1220,7 +1220,7 @@ function openAdminEdit(id){
     }
   });
 
-  root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; updateUnifiedNav(); });
+  root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; showList(); updateUnifiedNav(); });
 }
 
 function renderAdmin(){
