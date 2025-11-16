@@ -9,7 +9,7 @@ const detailShort = $('#detailShort');
 const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
-const backBtn = document.getElementById('backBtn');       
+const unifiedNavBtn = document.getElementById('unifiedNavBtn');
 const consultBtn = $('#consultBtn');
 const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
@@ -59,6 +59,7 @@ function hideAdminButton(){ adminBtn?.classList.add('hidden'); }
 
 document.getElementById('adminBtn')?.classList.add('hidden');
 document.getElementById('addCardBtn')?.classList.add('hidden');
+document.getElementById('unifiedNavBtn')?.classList.add('hidden');
 
 const PLACEHOLDER =
   'data:image/svg+xml;utf8,' +
@@ -83,12 +84,13 @@ function openGallery(p) {
   if (!imgs.length) return;
   galleryImg.src = detailImg.src;
   galleryModal.classList.remove('hidden');
+  if (typeof updateUnifiedNav === 'function') updateUnifiedNav();
 
 
   galleryPrev.onclick = async () => { await prevImage(p); galleryImg.src = detailImg.src; };
   galleryNext.onclick = async () => { await nextImage(p); galleryImg.src = detailImg.src; };
 
-  galleryClose.onclick = () => galleryModal.classList.add('hidden');
+  galleryClose.onclick = () => { galleryModal.classList.add('hidden'); if (typeof updateUnifiedNav === 'function') updateUnifiedNav(); };
 
   // свайп в модалке
   if (!galleryModal._swipeBound) {
@@ -212,10 +214,12 @@ function closeRequest(){
 function modalShow(el){
   el.classList.remove('hidden');
   requestAnimationFrame(()=> el.classList.add('show'));
+  // update unified nav after modal opens
+  setTimeout(()=> { try { if (typeof updateUnifiedNav === 'function') updateUnifiedNav(); } catch {} }, 10);
 }
 function modalHide(el){
   el.classList.remove('show');
-  setTimeout(()=> el.classList.add('hidden'), 200);
+  setTimeout(()=> { el.classList.add('hidden'); try { if (typeof updateUnifiedNav === 'function') updateUnifiedNav(); } catch {} }, 200);
 }
 
 function openRequest(product){
@@ -286,44 +290,7 @@ requestForm.addEventListener('submit', (e) => {
 // (инициализация Telegram-контекста делается ниже вместе с обработчиком BackButton)
 
 // Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
-function goBack() {
-  try {
-    // debounce
-    const now = Date.now();
-    if (goBack._last && now - goBack._last < 250) return; 
-    goBack._last = now;
-
-    // закроем админ-панель, если она открыта
-    const adminViewEl = document.getElementById('adminView');
-    if (adminViewEl) {
-      adminViewEl.remove();
-      renderCards();
-      return;
-    }
-
-    // если открыт просмотр товара (detailView видим) — покажем список
-    if (typeof detailView !== 'undefined' && detailView && !detailView.classList.contains('hidden')) {
-      showList();
-      return;
-    }
-
-    // если hash — служебный telegram, просто показать список
-    const h = String(location.hash || '');
-    if (h.includes('tgWebAppData') || h.toLowerCase().includes('init_data')) {
-      renderCards();
-      return;
-    }
-
-    // иначе — обычный возврат назад
-    if (window.history && window.history.length > 1) {
-      history.back();
-      return;
-    }
-
-    // default fallback
-    renderCards();
-  } catch (e) { console.error('[goBack] error', e); renderCards(); }
-}
+// Removed goBack function — navigation is handled by unifiedNavBtn handlers.
 
 if (inTelegram) {
   tg.ready();
@@ -332,17 +299,12 @@ if (inTelegram) {
     ? `@${tg.initDataUnsafe.user.username}`
     : 'без username';
 
-  tg.BackButton?.onClick(goBack);
-  tg.BackButton?.hide?.();
-  // always attach header backBtn to goBack for reliability
-  if (backBtn) {
-    backBtn.removeEventListener('click', goBack);
-    backBtn.addEventListener('click', goBack);
-  }
+  // Back button functionality removed — keep unified nav button hidden
+  if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 
   tg.onEvent('themeChanged', applyThemeFromTelegram);
 } else {
-  backBtn?.addEventListener('click', () => { location.hash = '#/'; });
+  if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 }
 
 
@@ -607,6 +569,8 @@ function renderCards() {
     card.append(link, body);
     cardsRoot.appendChild(card);
   });
+    // refresh unified nav state after re-render
+    updateUnifiedNav();
 }
 
 function switchViews(hideEl, showEl) {
@@ -738,6 +702,59 @@ function goPrevCard() {
   });
 }
 
+// Unified navigation button updater
+function updateUnifiedNav() {
+  if (!unifiedNavBtn) return;
+  // admin view open -> show 'Закрыть'
+  const adminView = document.getElementById('adminView');
+  if (adminView) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'Закрыть';
+    unifiedNavBtn.onclick = () => {
+      const el = document.getElementById('adminView');
+      if (el) el.remove();
+      renderCards();
+    };
+    return;
+  }
+
+  // gallery modal open -> close gallery and stay on product
+  if (galleryModal && !galleryModal.classList.contains('hidden')) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'К карточке';
+    unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
+    return;
+  }
+
+  // consult modal open -> close consult
+  if (consultModal && !consultModal.classList.contains('hidden')) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'Закрыть';
+    unifiedNavBtn.onclick = () => { closeConsult(); updateUnifiedNav(); };
+    return;
+  }
+
+  // request modal open -> close request
+  if (requestModal && !requestModal.classList.contains('hidden')) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'Закрыть';
+    unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); };
+    return;
+  }
+
+  // product detail visible -> show 'К списку'
+  if (detailView && !detailView.classList.contains('hidden')) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'К списку';
+    unifiedNavBtn.onclick = () => { renderCards(); };
+    return;
+  }
+
+  // otherwise hide
+  unifiedNavBtn.classList.add('hidden');
+  unifiedNavBtn.onclick = null;
+}
+
 async function nextImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
@@ -753,10 +770,10 @@ async function prevImage(p) {
 }
 
 function showList() {
-  backBtn.classList.add('hidden');
-  tg?.BackButton?.hide?.();        
+  // Update unified nav button and show list
   switchViews(detailView, listView);
   updateCartUI();
+  updateUnifiedNav();
 }
 
 function showDetail(productId){
@@ -826,9 +843,8 @@ function showDetail(productId){
         detailLong.appendChild(el);
       });
   }
-  backBtn.classList.remove('hidden');        // показываем кнопку на карточке
-  tg?.BackButton?.hide?.();                  // системная скрыта
   switchViews(listView, detailView);
+  updateUnifiedNav();
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
@@ -888,10 +904,7 @@ function handleStartParam(raw){
   updateCartUI();
   handleStartParam(getStartParam());
   ensureAdminButton();
-  window.addEventListener('hashchange', () => {
-    router();
-    tg?.BackButton?.hide?.(); // принудительно прячем системную
-  });
+  window.addEventListener('hashchange', () => { router(); });
   router();
 })();
 
@@ -907,6 +920,7 @@ function router(){
   } else if (hash === '#/add') {
     showAdmin();
   }
+  updateUnifiedNav();
 }
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
@@ -925,6 +939,7 @@ async function ensureAdminButton(){
     window.__isAdmin = false;
     hide();
     renderCards();          // ← перерендер без кнопок
+    updateUnifiedNav();
     return;
   }
 
@@ -939,10 +954,12 @@ async function ensureAdminButton(){
     window.__isAdmin = Boolean(j && j.ok && j.isAdmin);
     if (window.__isAdmin) show(); else hide();
     renderCards();          // ← перерендер с/без кнопок
+    updateUnifiedNav();
   } catch {
     window.__isAdmin = false;
     hide();
     renderCards();          // ← перерендер без кнопок
+    updateUnifiedNav();
   }
 }
 
@@ -1203,7 +1220,7 @@ function openAdminEdit(id){
     }
   });
 
-  root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; });
+  root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; updateUnifiedNav(); });
 }
 
 function renderAdmin(){
@@ -1215,23 +1232,21 @@ function renderAdmin(){
   view.className = 'max-w-5xl mx-auto p-4 fade-in';
   view.innerHTML = `
     <div class="flex items-center gap-3 mb-3">
-      <button id="adminBackBtn" class="rounded-lg px-3 py-2 text-sm border" style="border-color:var(--sep)">Назад</button>
       <h2 class="text-lg font-semibold">Админка: карточки</h2>
     </div>
     <div id="adminEditRoot"></div>
   `;
 
   document.body.appendChild(view);
-  const __ab = document.getElementById('adminBackBtn');
-  if (__ab) __ab.onclick = goBack;
   openAdminEdit(null);
+  updateUnifiedNav();
 }
 
 function showAdmin(){
   listView.classList.add('hidden'); detailView.classList.add('hidden');
   const exist = document.getElementById('adminView'); if (exist) exist.remove();
   renderAdmin();
-  try { tg?.BackButton?.show?.(); } catch {}
+  updateUnifiedNav();
 }
 
 // router() определён выше; эта версия была дублирована и удалена
