@@ -866,11 +866,9 @@ function router(){
     const id = hash.replace('#/product/','');
     showDetail(id);
   } else if (hash === '#/admin') {
-    switchViews(listView, adminView);
-    setTimeout(() => openAdminEdit(null), 0);
+    showAdmin();
   } else if (hash === '#/add') {
-    switchViews(listView, adminView);
-    setTimeout(() => openAdminEdit(null), 0);
+    showAdmin();
   }
 }
 
