@@ -49,16 +49,13 @@ const addToCartBtn = $('#addToCartBtn');
 
 adminBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  location.hash = '#/admin';
+  showAdmin();
 });
 
-addCardBtn?.addEventListener('click', (e) => {
-  e.preventDefault();
-  location.hash = '#/admin';
-});
-
-function showAdminButton(){ adminBtn?.classList.remove('hidden'); addCardBtn?.classList.remove('hidden'); }
-function hideAdminButton(){ adminBtn?.classList.add('hidden'); addCardBtn?.classList.add('hidden'); }
+// Only the header admin button opens the admin panel. Hide the addCardBtn from UI.
+addCardBtn?.classList.add('hidden');
+function showAdminButton(){ adminBtn?.classList.remove('hidden'); }
+function hideAdminButton(){ adminBtn?.classList.add('hidden'); }
 
 document.getElementById('adminBtn')?.classList.add('hidden');
 document.getElementById('addCardBtn')?.classList.add('hidden');
@@ -291,6 +288,9 @@ requestForm.addEventListener('submit', (e) => {
 // Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
 function goBack() {
   try {
+    const now = Date.now();
+    if (goBack._last && now - goBack._last < 300) return; // debounce multiple rapid calls
+    goBack._last = now;
     const h = String(location.hash || '');
     const short = h.length > 120 ? (h.slice(0,120) + '...') : h;
     console.log('[goBack] current hash (truncated):', short);
@@ -557,7 +557,7 @@ function renderCards() {
       editBtn.style.borderColor = 'var(--sep)';
       editBtn.onclick = (e) => {
         e.preventDefault();
-        location.hash = '#/admin';
+        showAdmin();
         setTimeout(() => openAdminEdit(p.id), 0);
       };
 
