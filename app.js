@@ -300,6 +300,14 @@ function goBack() {
       return;
     }
     const hash = location.hash || '#/';
+    // если админка сейчас открыта как view — закроем её
+    const adminViewEl = document.getElementById('adminView');
+    if (adminViewEl && !adminViewEl.classList.contains('hidden')) {
+      // просто удалить админ view и показать список
+      adminViewEl.remove();
+      showList();
+      return;
+    }
     if (hash.startsWith('#/product/')) {
       showList();
       return;
@@ -322,7 +330,11 @@ if (inTelegram) {
 
   tg.BackButton?.onClick(goBack);
   tg.BackButton?.hide?.();
-  backBtn?.addEventListener('click', goBack);
+  // always attach header backBtn to goBack for reliability
+  if (backBtn) {
+    backBtn.removeEventListener('click', goBack);
+    backBtn.addEventListener('click', goBack);
+  }
 
   tg.onEvent('themeChanged', applyThemeFromTelegram);
 } else {
