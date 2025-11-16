@@ -35,7 +35,6 @@ const rUsernamePreview = $('#rUsernamePreview');
 const rCity = $('#rCity');
 const rComment = $('#rComment');
 const consultBtnMain = $('#consultBtnMain');
-const openPdfBtn = $('#openPdfBtn');
 
 const galleryModal = document.getElementById('galleryModal');
 const galleryImg   = document.getElementById('galleryImg');
@@ -844,22 +843,13 @@ function showDetail(productId){
       });
   }
   switchViews(listView, detailView);
-  updateUnifiedNav();
+  // ensure unified nav updated after final switchViews
+  setTimeout(()=> updateUnifiedNav(), 10);
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
   addToCartBtn.onclick = () => addToCart(p);
-  const openPdfBtn = document.getElementById('openPdfBtn');
-
-  if (openPdfBtn) openPdfBtn.onclick = () => {
-    const raw = (p && currentImage(p)) || detailImg?.src || '';
-    const src = typeof raw === 'string' ? raw : (raw?.url || raw?.path || '');
-    if (isPdf(src)) {
-      window.open(src, '_blank', 'noopener');
-    } else {
-      toast('Для текущего слайда нет PDF');
-    }
-  };
+  // openPdfBtn removed — PDF open feature disabled per request
 
   animateCardEnter(detailView);
   attachSwipe(detailView, {
