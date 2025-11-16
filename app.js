@@ -288,37 +288,41 @@ requestForm.addEventListener('submit', (e) => {
 // Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
 function goBack() {
   try {
+    // debounce
     const now = Date.now();
-    if (goBack._last && now - goBack._last < 300) return; // debounce multiple rapid calls
+    if (goBack._last && now - goBack._last < 250) return; 
     goBack._last = now;
-    const h = String(location.hash || '');
-    const short = h.length > 120 ? (h.slice(0,120) + '...') : h;
-    console.log('[goBack] current hash (truncated):', short);
-    // если hash слишком длинный или содержит служебные данные от Telegram, просто вернёмся к списку
-    if (h.length > 180 || h.includes('tgWebAppData') || h.toLowerCase().includes('init_data')) {
-      location.hash = '#/';
-      return;
-    }
-    const hash = location.hash || '#/';
-    // если админка сейчас открыта как view — закроем её
+
+    // закроем админ-панель, если она открыта
     const adminViewEl = document.getElementById('adminView');
-    if (adminViewEl && !adminViewEl.classList.contains('hidden')) {
-      // просто удалить админ view и показать список
+    if (adminViewEl) {
       adminViewEl.remove();
+      renderCards();
+      return;
+    }
+
+    // если открыт просмотр товара (detailView видим) — покажем список
+    if (typeof detailView !== 'undefined' && detailView && !detailView.classList.contains('hidden')) {
       showList();
       return;
     }
-    if (hash.startsWith('#/product/')) {
-      showList();
+
+    // если hash — служебный telegram, просто показать список
+    const h = String(location.hash || '');
+    if (h.includes('tgWebAppData') || h.toLowerCase().includes('init_data')) {
+      renderCards();
       return;
     }
-    if (hash === '#/admin' || hash === '#/add') {
-      location.hash = '#/';
+
+    // иначе — обычный возврат назад
+    if (window.history && window.history.length > 1) {
+      history.back();
       return;
     }
-    // fallback: если ничего не делать — попробуем history.back()
-    if (window.history && window.history.length > 1) history.back();
-  } catch (e) { console.error('[goBack] error', e); }
+
+    // default fallback
+    renderCards();
+  } catch (e) { console.error('[goBack] error', e); renderCards(); }
 }
 
 if (inTelegram) {
@@ -914,8 +918,8 @@ async function ensureAdminButton(){
   const $admin = document.getElementById('adminBtn');
   const $add   = document.getElementById('addCardBtn');
 
-  const show = () => { $admin?.classList.remove('hidden'); $add?.classList.remove('hidden'); };
-  const hide = () => { $admin?.classList.add('hidden');  $add?.classList.add('hidden');  };
+  const show = () => { $admin?.classList.remove('hidden'); };
+  const hide = () => { $admin?.classList.add('hidden');  };
 
   if (!init_data) {
     window.__isAdmin = false;
@@ -1219,7 +1223,7 @@ function renderAdmin(){
 
   document.body.appendChild(view);
   const __ab = document.getElementById('adminBackBtn');
-  if (__ab) __ab.onclick = () => { location.hash = '#/'; };
+  if (__ab) __ab.onclick = goBack;
   openAdminEdit(null);
 }
 
