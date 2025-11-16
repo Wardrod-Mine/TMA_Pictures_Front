@@ -437,6 +437,7 @@ async function loadProducts() {
 async function saveProductToServer(product){
   try{
     const init_data = window.Telegram?.WebApp?.initData || '';
+    const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
     const url = new URL('/products', API_BASE).toString();
     const res = await fetch(url, {
       method: 'POST',
@@ -444,7 +445,7 @@ async function saveProductToServer(product){
         'Content-Type': 'application/json',
         'Telegram-Init-Data': init_data
       },
-      body: JSON.stringify({ init_data, product })
+      body: JSON.stringify({ init_data, init_data_unsafe, product })
     });
     const j = await res.json().catch(()=>({ok:false}));
     if (!j.ok) alert('Ошибка сохранения: ' + (j.error || (res.status + ' ' + res.statusText)));
@@ -455,7 +456,12 @@ async function saveProductToServer(product){
 async function deleteProductOnServer(id){
   try{
     const init_data = window.Telegram?.WebApp?.initData || '';
-    const res = await fetch(new URL(`/products/${encodeURIComponent(id)}`, API_BASE).toString(), { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data }) });
+    const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
+    const res = await fetch(new URL(`/products/${encodeURIComponent(id)}`, API_BASE).toString(), {
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ init_data, init_data_unsafe })
+    });
     return await res.json();
   }catch(e){ console.error('deleteProductOnServer error', e); return { ok:false }; }
 }
@@ -1013,7 +1019,8 @@ function openAdminEdit(id){
         if (!confirm('Удалить изображение?')) return;
         const imgObj = imgs[idx];
         const init_data = window.Telegram?.WebApp?.initData || '';
-        const body = { init_data, productId: (idInput && idInput.value) || id };
+        const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
+        const body = { init_data, init_data_unsafe, productId: (idInput && idInput.value) || id };
         if (typeof imgObj === 'string') body.path = imgObj;
         else { body.public_id = imgObj.public_id || imgObj.path || null; body.path = imgObj.url || null; }
         try {
