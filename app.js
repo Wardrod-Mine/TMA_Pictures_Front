@@ -952,18 +952,23 @@ function openAdminEdit(id){
 
   // инициализация значений
   const imgs = (p && Array.isArray(p.imgs)) ? p.imgs.slice() : [];
+  const idInput = form.querySelector('input[name="id"]');
+  const titleInput = form.querySelector('input[name="title"]');
+  const shortInput = form.querySelector('input[name="shortDescription"]');
+  const descInput = form.querySelector('textarea[name="description"]');
+
   if (p) {
-    form.id.value = p.id;
-    form.title.value = p.title || '';
-    form.shortDescription.value = p.shortDescription || p.short || '';
-    form.description.value = p.description || '';
+    if (idInput) idInput.value = p.id;
+    if (titleInput) titleInput.value = p.title || '';
+    if (shortInput) shortInput.value = p.shortDescription || p.short || '';
+    if (descInput) descInput.value = p.description || '';
   }
 
   // примеры-плейсхолдеры
-  form.id.placeholder = 'poster_ultra';
-  form.title.placeholder = 'Постер «Космос: Туманность Ориона»';
-  form.shortDescription.placeholder = 'Печать на холсте, 50×70 см, быстрая доставка';
-  form.description.placeholder = 'Плотный холст 350 г/м², стойкие пигменты. Индивидуальная корректировка по фото.';
+  if (idInput) idInput.placeholder = 'poster_ultra';
+  if (titleInput) titleInput.placeholder = 'Постер «Космос: Туманность Ориона»';
+  if (shortInput) shortInput.placeholder = 'Печать на холсте, 50×70 см, быстрая доставка';
+  if (descInput) descInput.placeholder = 'Плотный холст 350 г/м², стойкие пигменты. Индивидуальная корректировка по фото.';
 
   // --- загрузка серии фото: состояние и UI
   const selectedFiles = [];                  // File[]
@@ -1010,7 +1015,7 @@ function openAdminEdit(id){
         if (!confirm('Удалить изображение?')) return;
         const imgObj = imgs[idx];
         const init_data = window.Telegram?.WebApp?.initData || '';
-        const body = { init_data, productId: form.id.value || id };
+        const body = { init_data, productId: (idInput && idInput.value) || id };
         if (typeof imgObj === 'string') body.path = imgObj;
         else { body.public_id = imgObj.public_id || imgObj.path || null; body.path = imgObj.url || null; }
         try {
@@ -1059,7 +1064,7 @@ function openAdminEdit(id){
 
   async function uploadSelectedFiles(){
     if (selectedFiles.length === 0) return;
-    const cardId = form.id.value || id || ('p_' + Date.now());
+    const cardId = (idInput && idInput.value) || id || ('p_' + Date.now());
     statusEl.textContent = 'Загрузка...';
     pickBtn.disabled = true;
 
@@ -1095,12 +1100,12 @@ function openAdminEdit(id){
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn?.setAttribute('disabled','disabled');
 
-    const idv = form.id.value.trim();
+    const idv = ((idInput && idInput.value) || '').trim();
     const payload = {
       id: idv || ('p_' + Date.now()),
-      title: form.title.value.trim(),
-      shortDescription: form.shortDescription.value.trim(),
-      description: form.description.value.trim(),
+      title: (titleInput && titleInput.value || '').trim(),
+      shortDescription: (shortInput && shortInput.value || '').trim(),
+      description: (descInput && descInput.value || '').trim(),
       imgs
     };
     const init_data = window.Telegram?.WebApp?.initData || '';
@@ -1193,12 +1198,7 @@ function showAdmin(){
   try { tg?.BackButton?.show?.(); } catch {}
 }
 
-function router(){
-  const hash = location.hash || '#/';
-  if (hash === '#/admin') { showAdmin(); return; }
-  if (hash.startsWith('#/product/')) showDetail(hash.replace('#/product/',''));
-  else showList();
-}
+// router() определён выше; эта версия была дублирована и удалена
 
 function openOrderForm(product) {
   const root = document.getElementById('root');
