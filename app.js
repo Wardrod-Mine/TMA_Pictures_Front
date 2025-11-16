@@ -286,24 +286,32 @@ requestForm.addEventListener('submit', (e) => {
 
 });
 
+// (инициализация Telegram-контекста делается ниже вместе с обработчиком BackButton)
+
+// Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
+function goBack() {
+  try {
+    console.log('[goBack] current hash:', location.hash);
+    const hash = location.hash || '#/';
+    if (hash.startsWith('#/product/')) {
+      showList();
+      return;
+    }
+    if (hash === '#/admin' || hash === '#/add') {
+      location.hash = '#/';
+      return;
+    }
+    // fallback: если ничего не делать — попробуем history.back()
+    if (window.history && window.history.length > 1) history.back();
+  } catch (e) { console.error('[goBack] error', e); }
+}
+
 if (inTelegram) {
   tg.ready();
   tg.expand();
   usernameSlot.textContent = tg.initDataUnsafe.user?.username
     ? `@${tg.initDataUnsafe.user.username}`
     : 'без username';
-
-  // своя логика "назад"
-  const goBack = () => {
-    const hash = location.hash || '#/';
-    if (hash.startsWith('#/product/')) {
-      showList();
-    } else if (hash === '#/admin' || hash === '#/add') {
-      location.hash = '#/';
-    } else {
-      return;
-    }
-  };
 
   tg.BackButton?.onClick(goBack);
   tg.BackButton?.hide?.();
