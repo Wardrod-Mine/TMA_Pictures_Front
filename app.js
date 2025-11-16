@@ -291,7 +291,9 @@ requestForm.addEventListener('submit', (e) => {
 // Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
 function goBack() {
   try {
-    console.log('[goBack] current hash:', location.hash);
+    const h = String(location.hash || '');
+    const short = h.length > 120 ? (h.slice(0,120) + '...') : h;
+    console.log('[goBack] current hash (truncated):', short);
     const hash = location.hash || '#/';
     if (hash.startsWith('#/product/')) {
       showList();
@@ -1018,7 +1020,7 @@ function openAdminEdit(id){
       wrap.style.borderColor = 'var(--sep)';
       wrap.innerHTML = `
         <img src="${src}" class="w-full h-24 object-cover" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'320\\' height=\\'180\\'><rect width=\\'100%\\' height=\\'100%\\' fill=\\'%23161b22\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%238b949e\\' dy=\\'.3em\\' font-family=\\'Arial\\' font-size=\\'14\\' text-anchor=\\'middle\\'>Нет изображения</text></svg>'">
-        <button data-exist="${idx}" class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Удалить</button>
+        <button type="button" data-exist="${idx}" class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Удалить</button>
       `;
 
       gallery.appendChild(wrap);
@@ -1048,7 +1050,7 @@ function openAdminEdit(id){
     wrap.style.borderColor = 'var(--sep)';
     wrap.innerHTML = `
       <img class="w-full h-24 object-cover" alt="">
-      <button class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Убрать</button>
+      <button type="button" class="absolute top-1 right-1 bg-black/60 hover:bg-black text-white text-xs px-2 py-1 rounded">Убрать</button>
     `;
     const imgEl = wrap.querySelector('img');
     imgEl.onerror = () => {
