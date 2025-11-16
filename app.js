@@ -294,6 +294,11 @@ function goBack() {
     const h = String(location.hash || '');
     const short = h.length > 120 ? (h.slice(0,120) + '...') : h;
     console.log('[goBack] current hash (truncated):', short);
+    // если hash слишком длинный или содержит служебные данные от Telegram, просто вернёмся к списку
+    if (h.length > 180 || h.includes('tgWebAppData') || h.toLowerCase().includes('init_data')) {
+      location.hash = '#/';
+      return;
+    }
     const hash = location.hash || '#/';
     if (hash.startsWith('#/product/')) {
       showList();
