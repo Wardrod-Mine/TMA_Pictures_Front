@@ -11,7 +11,7 @@ const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
 const tg = window.Telegram?.WebApp;
-const inTelegram = Boolean(tg && typeof tg.initData !== 'undefined');
+function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
 const consultBtn = $('#consultBtn');
 const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
@@ -190,20 +190,15 @@ requestForm.addEventListener('submit', (e) => {
 
 });
 
-// (инициализация Telegram-контекста делается ниже вместе с обработчиком BackButton)
-
-// Глобальная логика кнопки "Назад" — вынесена наружу для стабильности
-// Removed goBack function — navigation is handled by unifiedNavBtn handlers.
-
-if (inTelegram) {
-  tg.ready();
-  tg.expand();
-  usernameSlot.textContent = tg.initDataUnsafe.user?.username
+if (isInTelegram()) {
+  try { tg.ready(); } catch {}
+  try { tg.expand(); } catch {}
+  usernameSlot.textContent = tg.initDataUnsafe?.user?.username
     ? `@${tg.initDataUnsafe.user.username}`
     : 'без username';
   // keep local unified nav hidden initially; we will manage it centrally
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
-  tg.onEvent('themeChanged', applyThemeFromTelegram);
+  try { tg.onEvent('themeChanged', applyThemeFromTelegram); } catch {}
 } else {
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 }
@@ -240,8 +235,8 @@ async function sendToBot(payload) {
 }
 
 function applyThemeFromTelegram() {
-  if (!inTelegram) return;
-  const tp = tg.themeParams || {};
+  if (!isInTelegram()) return;
+  const tp = tg?.themeParams || {};
   const root = document.documentElement;
   const set = (v, val, fb) => root.style.setProperty(v, val || fb);
   set('--bg', tp.bg_color, '#0e1117');
@@ -484,7 +479,7 @@ function prepareSend(product, action, viaMainButton = false) {
 
   console.log('[buyBtn] click. payload ->', payload);
 
-  if (!inTelegram) {
+  if (!isInTelegram()) {
     alert('Откройте через Telegram, чтобы отправить заявку.\n\n' + JSON.stringify(payload, null, 2));
     return;
   }
