@@ -17,104 +17,6 @@ const cartCount = $('#cartCount');
 const toastEl = $('#toast');
 const consultModal = $('#consultModal');
 const consultForm = $('#consultForm');
-const consultCancel = $('#consultCancel');
-const consultProductTitle = $('#consultProductTitle');
-const cName = $('#cName');
-const cContact = $('#cContact');
-const cMsg = $('#cMsg');
-const tg = window.Telegram?.WebApp;
-const inTelegram = Boolean(tg && typeof tg.initData !== 'undefined');
-const requestModal = $('#requestModal');
-const requestForm = $('#requestForm');
-const requestCancel = $('#requestCancel');
-const requestProductTitle = $('#requestProductTitle');
-const rPhone = $('#rPhone');
-const rName = $('#rName');
-const rUseUsername = $('#rUseUsername');
-const rUsernamePreview = $('#rUsernamePreview');
-const rCity = $('#rCity');
-const rComment = $('#rComment');
-const consultBtnMain = $('#consultBtnMain');
-
-const galleryModal = document.getElementById('galleryModal');
-const galleryImg   = document.getElementById('galleryImg');
-const galleryClose = document.getElementById('galleryClose');
-const galleryPrev  = document.getElementById('galleryPrev');
-const galleryNext  = document.getElementById('galleryNext');
-const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
-const adminBtn = document.getElementById('adminBtn');
-const addCardBtn = document.getElementById('addCardBtn');
-const addToCartBtn = $('#addToCartBtn');
-
-adminBtn?.addEventListener('click', (e) => {
-  e.preventDefault();
-  showAdmin();
-});
-
-// Only the header admin button opens the admin panel. Hide the addCardBtn from UI.
-addCardBtn?.classList.add('hidden');
-function showAdminButton(){ adminBtn?.classList.remove('hidden'); }
-function hideAdminButton(){ adminBtn?.classList.add('hidden'); }
-
-document.getElementById('adminBtn')?.classList.add('hidden');
-document.getElementById('addCardBtn')?.classList.add('hidden');
-document.getElementById('unifiedNavBtn')?.classList.add('hidden');
-
-const PLACEHOLDER =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="#161b22"/><text x="50%" y="50%" fill="#8b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>');
-
-function loadProductsCache() {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
-}
-function saveProductsCache(list) {
-  try { localStorage.setItem(CACHE_KEY_PRODUCTS, JSON.stringify(list || [])); } catch {}
-}
-function normalizeProducts(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (payload && Array.isArray(payload.items))     return payload.items;
-  if (payload && Array.isArray(payload.data))      return payload.data;
-  if (payload && Array.isArray(payload.products))  return payload.products;
-  return [];
-}
-
-function openGallery(p) {
-  const imgs = Array.isArray(p.imgs) ? p.imgs : [];
-  if (!imgs.length) return;
-  galleryImg.src = detailImg.src;
-  galleryModal.classList.remove('hidden');
-  if (typeof updateUnifiedNav === 'function') updateUnifiedNav();
-
-
-  galleryPrev.onclick = async () => { await prevImage(p); galleryImg.src = detailImg.src; };
-  galleryNext.onclick = async () => { await nextImage(p); galleryImg.src = detailImg.src; };
-
-  galleryClose.onclick = () => { galleryModal.classList.add('hidden'); if (typeof updateUnifiedNav === 'function') updateUnifiedNav(); };
-
-  // свайп в модалке
-  if (!galleryModal._swipeBound) {
-    attachSwipe(galleryModal, {
-      onLeft: async () => { await nextImage(p); galleryImg.src = detailImg.src; },
-      onRight: async () => { await prevImage(p); galleryImg.src = detailImg.src; },
-      min: 24
-    });
-    galleryModal._swipeBound = true;
-  }
-}
-
-let requestContext = null;
-let currentIndex = 0;      
-let currentImageIndex = 0;   
-
-// Быстрый helper: безопасно взять первую картинку
-function currentImage(p) {
-  const arr = Array.isArray(p.imgs) ? p.imgs : [];
-  return arr[currentImageIndex] && (arr[currentImageIndex].url || arr[currentImageIndex]);
-}
-
-function isPdf(src) {
-  return typeof src === 'string' && /\.pdf(\?|#|$)/i.test(src);
-}
 
 async function renderPdfFirstPageToDataUrl(url, scale = 1.5) {
   if (!window.pdfjsLib) throw new Error('pdfjs not loaded');
@@ -297,29 +199,9 @@ if (inTelegram) {
   usernameSlot.textContent = tg.initDataUnsafe.user?.username
     ? `@${tg.initDataUnsafe.user.username}`
     : 'без username';
-
-  // Back button functionality removed — keep unified nav button hidden
+  // keep local unified nav hidden initially; we will manage it centrally
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
-
   tg.onEvent('themeChanged', applyThemeFromTelegram);
-
-  // Ensure Telegram back button is initially hidden and register handler
-  try {
-    if (typeof tg.showBackButton === 'function') tg.showBackButton(false);
-    if (typeof tg.onEvent === 'function') {
-      // back button pressed in Telegram header
-      tg.onEvent('backButtonPressed', () => {
-        try {
-          if (detailView && !detailView.classList.contains('hidden')) {
-            showList();
-            return;
-          }
-          // default fallback: try to close WebApp
-          if (typeof tg.close === 'function') tg.close();
-        } catch (e) { console.warn('backButtonPressed handler error', e); }
-      });
-    }
-  } catch (e) { console.warn('Telegram back button setup failed', e); }
 } else {
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 }
@@ -371,24 +253,7 @@ function applyThemeFromTelegram() {
 }
 applyThemeFromTelegram();
 
-// ============ КОРЗИНА ====================
-let CART = loadCart();
-function updateCartUI(){
-  const count = CART.items.length;
-  if (count > 0) {
-    cartCount.textContent = count > 99 ? '99+' : String(count);
-    cartCount.classList.remove('hidden');
-    cartBtn.classList.remove('muted');
-  } else {
-    cartCount.classList.add('hidden');
-    cartBtn.classList.add('muted');
-  }
-}
-updateCartUI();
-
-function loadCart(){ try{ const data = sessionStorage.getItem('cart'); return data ? JSON.parse(data) : { items:[] }; }catch(e){ return { items:[] }; } }
-function saveCart(){ try{ sessionStorage.setItem('cart', JSON.stringify(CART)); }catch(e){} }
-function inCart(id){ return CART.items.findIndex(x => x.id === id) >= 0; }
+// Cart functionality removed (add-to-cart / cart) per request
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
@@ -632,27 +497,7 @@ function prepareSend(product, action, viaMainButton = false) {
 }
 
 // Корзина
-function addToCart(product){
-  if (inCart(product.id)) { toast('Уже в заявке'); return; }
-  CART.items.push({ id: product.id, title: product.title });
-  saveCart(); toast('Добавлено в заявку'); tg?.HapticFeedback?.notificationOccurred?.('success'); updateCartUI();
-}
-
-function sendCart(){
-  if (CART.items.length === 0) return;
-  const payload = { v:1, type:'lead', action:'send_cart', items:CART.items, at:new Date().toISOString() };
-  try {
-    sendToBot(payload);
-    tg?.HapticFeedback?.notificationOccurred?.('success');
-    toast('Заявка отправлена');
-  } catch (err) {
-    console.error('[Request Form] sendData error:', err);
-    tg?.HapticFeedback?.notificationOccurred?.('error');
-    tg?.showAlert?.('Не удалось отправить заявку');
-  }
-  CART = { items:[] }; saveCart(); updateCartUI();
-}
-cartBtn.addEventListener('click', ()=>{ if (CART.items.length) sendCart(); });
+// addToCart / cart send removed
 
 // Консультация
 let consultContext = null;
@@ -721,86 +566,56 @@ function goPrevCard() {
 
 // Unified navigation button updater
 function updateUnifiedNav() {
-  if (!unifiedNavBtn) {
-    console.log('[updateUnifiedNav] unifiedNavBtn not found');
-    return;
-  }
-  // make sure button overlays telegram header controls if present
-  try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
-  console.log('[updateUnifiedNav] called — state:', {
-    adminView: !!document.getElementById('adminView'),
-    galleryOpen: !!(galleryModal && !galleryModal.classList.contains('hidden')),
-    consultOpen: !!(consultModal && !consultModal.classList.contains('hidden')),
-    requestOpen: !!(requestModal && !requestModal.classList.contains('hidden')),
-    detailVisible: !!(detailView && !detailView.classList.contains('hidden'))
-  });
+  if (!unifiedNavBtn) return;
+  // throttle to avoid excessive runs
+  if (!window.__lastUpdateUnifiedNavTs) window.__lastUpdateUnifiedNavTs = 0;
+  const now = Date.now();
+  if (now - window.__lastUpdateUnifiedNavTs < 100) return;
+  window.__lastUpdateUnifiedNavTs = now;
 
-  // admin view open -> show 'Закрыть'
-  const adminView = document.getElementById('adminView');
+  try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
+
+  const adminView = !!document.getElementById('adminView');
+  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden'));
+  const consultOpen = !!(consultModal && !consultModal.classList.contains('hidden'));
+  const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
+  const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
+
   if (adminView) {
-    console.log('[updateUnifiedNav] adminView open — showing Close');
-    // when using Telegram, prefer hiding the local nav button and keep TG back hidden
-    if (inTelegram && typeof tg?.showBackButton === 'function') {
-      try { tg.showBackButton(false); } catch {};
-    }
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
-    unifiedNavBtn.onclick = () => {
-      const el = document.getElementById('adminView');
-      if (el) el.remove();
-      showList();
-    };
+    unifiedNavBtn.onclick = () => { const el = document.getElementById('adminView'); if (el) el.remove(); showList(); };
     return;
   }
 
-  // gallery modal open -> close gallery and stay on product
-  if (galleryModal && !galleryModal.classList.contains('hidden')) {
-    console.log('[updateUnifiedNav] gallery open — showing К карточке');
-    // hide Telegram native back while using local unified button for gallery
-    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
+  if (galleryOpen) {
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'К карточке';
     unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
     return;
   }
 
-  // consult modal open -> close consult
-  if (consultModal && !consultModal.classList.contains('hidden')) {
-    console.log('[updateUnifiedNav] consult modal open — showing Close');
-    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
+  if (consultOpen) {
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeConsult(); updateUnifiedNav(); };
     return;
   }
 
-  // request modal open -> close request
-  if (requestModal && !requestModal.classList.contains('hidden')) {
-    console.log('[updateUnifiedNav] request modal open — showing Close');
-    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
+  if (requestOpen) {
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); };
     return;
   }
 
-  // product detail visible -> prefer Telegram back button; fall back to unified button
-  if (detailView && !detailView.classList.contains('hidden')) {
-    console.log('[updateUnifiedNav] detail view visible — prefer Telegram back');
-    if (inTelegram && typeof tg?.showBackButton === 'function') {
-      try { tg.showBackButton(true); } catch (e) { console.warn('showBackButton error', e); }
-      unifiedNavBtn.classList.add('hidden');
-    } else {
-      unifiedNavBtn.classList.remove('hidden');
-      unifiedNavBtn.textContent = 'К списку';
-      unifiedNavBtn.onclick = () => { showList(); };
-    }
+  if (detailVisible) {
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'К списку';
+    unifiedNavBtn.onclick = () => { showList(); };
     return;
   }
 
-  // otherwise hide
-  console.log('[updateUnifiedNav] no matching state — hiding button');
-  if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
   unifiedNavBtn.classList.add('hidden');
   unifiedNavBtn.onclick = null;
 }
@@ -822,9 +637,6 @@ async function prevImage(p) {
 function showList() {
   // Update unified nav button and show list
   switchViews(detailView, listView);
-  updateCartUI();
-  // hide Telegram back button when returning to list
-  if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
   updateUnifiedNav();
 }
 
@@ -899,7 +711,6 @@ function showDetail(productId){
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
-  addToCartBtn.onclick = () => addToCart(p);
   // openPdfBtn removed — PDF open feature disabled per request
 
   animateCardEnter(detailView);
@@ -917,10 +728,6 @@ function showDetail(productId){
   // final switch to detail view — update unified nav shortly after to reflect new state
   switchViews(listView, detailView);
   setTimeout(()=> updateUnifiedNav(), 10);
-  // Ensure Telegram native back is shown for reliability in Telegram
-  if (inTelegram && typeof tg?.showBackButton === 'function') {
-    try { tg.showBackButton(true); } catch (e) { console.warn('showBackButton error', e); }
-  }
 }
 
 
@@ -948,7 +755,6 @@ function handleStartParam(raw){
     const id = a.getAttribute('href').replace('#/product/','');
     showDetail(id);
   });
-  updateCartUI();
   handleStartParam(getStartParam());
   ensureAdminButton();
   window.addEventListener('hashchange', () => { router(); });
