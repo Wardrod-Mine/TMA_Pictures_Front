@@ -703,10 +703,24 @@ function goPrevCard() {
 
 // Unified navigation button updater
 function updateUnifiedNav() {
-  if (!unifiedNavBtn) return;
+  if (!unifiedNavBtn) {
+    console.log('[updateUnifiedNav] unifiedNavBtn not found');
+    return;
+  }
+  // make sure button overlays telegram header controls if present
+  try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
+  console.log('[updateUnifiedNav] called — state:', {
+    adminView: !!document.getElementById('adminView'),
+    galleryOpen: !!(galleryModal && !galleryModal.classList.contains('hidden')),
+    consultOpen: !!(consultModal && !consultModal.classList.contains('hidden')),
+    requestOpen: !!(requestModal && !requestModal.classList.contains('hidden')),
+    detailVisible: !!(detailView && !detailView.classList.contains('hidden'))
+  });
+
   // admin view open -> show 'Закрыть'
   const adminView = document.getElementById('adminView');
   if (adminView) {
+    console.log('[updateUnifiedNav] adminView open — showing Close');
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => {
@@ -719,6 +733,7 @@ function updateUnifiedNav() {
 
   // gallery modal open -> close gallery and stay on product
   if (galleryModal && !galleryModal.classList.contains('hidden')) {
+    console.log('[updateUnifiedNav] gallery open — showing К карточке');
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'К карточке';
     unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
@@ -727,6 +742,7 @@ function updateUnifiedNav() {
 
   // consult modal open -> close consult
   if (consultModal && !consultModal.classList.contains('hidden')) {
+    console.log('[updateUnifiedNav] consult modal open — showing Close');
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeConsult(); updateUnifiedNav(); };
@@ -735,6 +751,7 @@ function updateUnifiedNav() {
 
   // request modal open -> close request
   if (requestModal && !requestModal.classList.contains('hidden')) {
+    console.log('[updateUnifiedNav] request modal open — showing Close');
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); };
@@ -743,6 +760,7 @@ function updateUnifiedNav() {
 
   // product detail visible -> show 'К списку'
   if (detailView && !detailView.classList.contains('hidden')) {
+    console.log('[updateUnifiedNav] detail view visible — showing К списку');
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'К списку';
     unifiedNavBtn.onclick = () => { showList(); };
@@ -750,6 +768,7 @@ function updateUnifiedNav() {
   }
 
   // otherwise hide
+  console.log('[updateUnifiedNav] no matching state — hiding button');
   unifiedNavBtn.classList.add('hidden');
   unifiedNavBtn.onclick = null;
 }
