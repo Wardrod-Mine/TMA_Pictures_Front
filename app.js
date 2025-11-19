@@ -9,23 +9,28 @@ const detailShort = $('#detailShort');
 const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
-const unifiedNavBtn = document.getElementById('unifiedNavBtn') || (function(){
+const unifiedNavBtn = document.getElementById('unifiedNavBtn');
+// detail-specific nav button (tied to the product card) — create on demand
+let detailNavBtn = document.getElementById('unifiedNavBtnDetail') || null;
+
+function ensureDetailNavBtn() {
+  if (detailNavBtn && detailNavBtn instanceof HTMLElement) return detailNavBtn;
   try {
     const b = document.createElement('button');
-    b.id = 'unifiedNavBtn';
+    b.id = 'unifiedNavBtnDetail';
     b.type = 'button';
-    b.className = 'hidden rounded px-3 py-1 text-sm';
-    b.setAttribute('aria-label', 'Навигация');
-    b.style.position = 'fixed';
+    b.className = 'unified-nav-btn-detail rounded px-3 py-1 text-sm';
+    b.setAttribute('aria-label', 'Назад к списку');
+    b.style.position = 'absolute';
     b.style.left = '12px';
     b.style.top = '12px';
     b.style.zIndex = '1200';
     b.style.background = 'rgba(0,0,0,0.6)';
     b.style.color = 'white';
-    document.body.appendChild(b);
-    return b;
+    detailNavBtn = b;
+    return detailNavBtn;
   } catch (e) { return null; }
-})();
+}
 const tg = window.Telegram?.WebApp;
 let galleryModal = document.getElementById('galleryModal');
 function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
@@ -660,7 +665,7 @@ function goPrevCard() {
 
 // Unified navigation button updater
 function updateUnifiedNav() {
-  if (!unifiedNavBtn) return;
+  if (!unifiedNavBtn && !detailNavBtn) return;
   // throttle to avoid excessive runs
   if (!window.__lastUpdateUnifiedNavTs) window.__lastUpdateUnifiedNavTs = 0;
   const now = Date.now();
@@ -676,16 +681,26 @@ function updateUnifiedNav() {
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
 
   if (adminView) {
-    unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'Закрыть';
-    unifiedNavBtn.onclick = () => { const el = document.getElementById('adminView'); if (el) el.remove(); showList(); };
+    // prefer header unifiedNavBtn for admin view
+    if (unifiedNavBtn) {
+      unifiedNavBtn.classList.remove('hidden');
+      unifiedNavBtn.textContent = 'Закрыть';
+      unifiedNavBtn.onclick = () => { const el = document.getElementById('adminView'); if (el) el.remove(); showList(); };
+    }
     return;
   }
 
   if (galleryOpen) {
-    unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'К карточке';
-    unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
+    // if detail is visible, use detail button; otherwise use header
+    if (detailVisible) {
+      const btn = ensureDetailNavBtn();
+      if (btn && !detailView.contains(btn)) { detailView.style.position = detailView.style.position || 'relative'; detailView.appendChild(btn); }
+      if (btn) { btn.classList.remove('hidden'); btn.textContent = 'К карточке'; btn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); }; }
+    } else if (unifiedNavBtn) {
+      unifiedNavBtn.classList.remove('hidden');
+      unifiedNavBtn.textContent = 'К карточке';
+      unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
+    }
     return;
   }
 
@@ -697,21 +712,21 @@ function updateUnifiedNav() {
   }
 
   if (requestOpen) {
-    unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'Закрыть';
-    unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); };
+    if (unifiedNavBtn) { unifiedNavBtn.classList.remove('hidden'); unifiedNavBtn.textContent = 'Закрыть'; unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); }; }
     return;
   }
 
   if (detailVisible) {
-    unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'К списку';
-    unifiedNavBtn.onclick = () => { showList(); };
+    const btn = ensureDetailNavBtn();
+    if (btn && !detailView.contains(btn)) { detailView.style.position = detailView.style.position || 'relative'; detailView.appendChild(btn); }
+    if (btn) { btn.classList.remove('hidden'); btn.textContent = 'К списку'; btn.onclick = () => { showList(); } }
+    if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); }
     return;
   }
 
-  unifiedNavBtn.classList.add('hidden');
-  unifiedNavBtn.onclick = null;
+  // default: hide both
+  if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); unifiedNavBtn.onclick = null; }
+  if (detailNavBtn && detailNavBtn.parentNode) { try { detailNavBtn.classList.add('hidden'); detailNavBtn.onclick = null; } catch(e){} }
 }
 
 async function nextImage(p) {
@@ -730,6 +745,8 @@ async function prevImage(p) {
 
 function showList() {
   // Update unified nav button and show list
+  // hide/remove nav from detail card
+  try { if (detailNavBtn && detailNavBtn.parentNode && detailNavBtn.parentNode.contains(detailNavBtn)) detailNavBtn.remove(); } catch (e) {}
   switchViews(detailView, listView);
   updateUnifiedNav();
 }
@@ -819,12 +836,17 @@ function showDetail(productId){
     min: 24
   });
   detailImg.onclick = () => openGallery(p);
-  // explicitly show unified nav for detail (ensure back button visible)
+  // attach unified nav button into the detail card so it follows the card
   try {
-    if (unifiedNavBtn) {
-      unifiedNavBtn.classList.remove('hidden');
-      unifiedNavBtn.textContent = 'К списку';
-      unifiedNavBtn.onclick = () => { showList(); };
+    const btn = ensureDetailNavBtn();
+    if (btn) {
+      if (!detailView.contains(btn)) {
+        detailView.style.position = detailView.style.position || 'relative';
+        detailView.appendChild(btn);
+      }
+      btn.classList.remove('hidden');
+      btn.textContent = 'К списку';
+      btn.onclick = () => { showList(); };
     }
   } catch (e) {}
   // final switch to detail view — update unified nav shortly after to reflect new state
