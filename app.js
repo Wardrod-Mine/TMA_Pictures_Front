@@ -20,6 +20,20 @@ const toastEl = $('#toast');
 const consultModal = $('#consultModal');
 const consultForm = $('#consultForm');
 
+// state
+let requestContext = null;
+let currentIndex = 0;
+let currentImageIndex = 0;
+
+// helper: безопасно взять первую картинку/текущий src
+function currentImage(p) {
+  const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+  if (!arr.length) return '';
+  const v = arr[currentImageIndex] || arr[0];
+  if (typeof v === 'string') return v;
+  return v?.url || v?.path || '';
+}
+
 async function renderPdfFirstPageToDataUrl(url, scale = 1.5) {
   if (!window.pdfjsLib) throw new Error('pdfjs not loaded');
   const pdf = await window.pdfjsLib.getDocument(url).promise;
