@@ -88,21 +88,32 @@ function isPdf(u) {
 // Открыть полноэкранную галерею/изображение
 async function openGallery(p) {
   if (!p) return;
-  // ensure galleryModal exists
-  if (!galleryModal) {
+
+  // ensure we have a reference to the DOM modal (try to re-query in case DOM changed)
+  if (!galleryModal) galleryModal = document.getElementById('galleryModal') || null;
+
+  // if gallery DOM isn't present or missing internals, create a minimal fallback
+  let createdFallback = false;
+  if (!galleryModal || !galleryModal.querySelector || !galleryModal.querySelector('#galleryImg')) {
+    console.debug('[openGallery] galleryModal missing or incomplete, creating fallback modal');
     galleryModal = document.createElement('div');
     galleryModal.id = 'galleryModal';
-    galleryModal.className = 'hidden';
+    galleryModal.className = '';
+    galleryModal.style.position = 'fixed';
+    galleryModal.style.inset = '0';
+    galleryModal.style.display = 'flex';
+    galleryModal.style.alignItems = 'center';
+    galleryModal.style.justifyContent = 'center';
+    galleryModal.style.background = 'rgba(0,0,0,0.9)';
+    galleryModal.style.zIndex = '1500';
     galleryModal.innerHTML = `
-      <div id="galleryInner" class="fixed inset-0 z-[1500] flex items-center justify-center p-4">
-        <div id="galleryBackdrop" class="absolute inset-0 bg-black/80"></div>
-        <button id="galleryClose" class="absolute top-4 right-4 z-[1510] bg-black/60 text-white rounded px-3 py-1">✕</button>
-        <button id="galleryPrev" class="absolute left-4 z-[1510] text-white text-3xl">‹</button>
-        <img id="galleryImg" src="" class="max-w-[90%] max-h-[90%] z-[1510] rounded shadow-lg" />
-        <button id="galleryNext" class="absolute right-4 z-[1510] text-white text-3xl">›</button>
-      </div>
+      <button id="galleryClose" style="position:absolute;top:12px;right:12px;z-index:1510;background:rgba(0,0,0,.5);color:white;padding:6px 8px;border-radius:6px">✕</button>
+      <button id="galleryPrev" style="position:absolute;left:12px;z-index:1510;color:white;font-size:28px">‹</button>
+      <img id="galleryImg" src="" style="max-width:90%;max-height:90%;z-index:1510;border-radius:6px" />
+      <button id="galleryNext" style="position:absolute;right:12px;z-index:1510;color:white;font-size:28px">›</button>
     `;
     document.body.appendChild(galleryModal);
+    createdFallback = true;
   }
 
   const imgEl = galleryModal.querySelector('#galleryImg');
@@ -110,11 +121,28 @@ async function openGallery(p) {
   const prevBtn = galleryModal.querySelector('#galleryPrev');
   const nextBtn = galleryModal.querySelector('#galleryNext');
 
+  if (!imgEl) {
+    console.warn('[openGallery] gallery image element not found — aborting');
+    return;
+  }
+
   async function update() {
-    const src = await getVisualSrcFor(p);
+    let src = '';
+    try {
+      src = await getVisualSrcFor(p);
+    } catch (err) {
+      console.warn('[openGallery] getVisualSrcFor error', err);
+      src = '';
+    }
+    if (!src) {
+      // as fallback try the first available string from p.imgs
+      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+      src = (arr[0] && typeof arr[0] === 'string') ? arr[0] : src;
+    }
     if (!src) {
       imgEl.src = '';
       imgEl.alt = p.title || '';
+      console.warn('[openGallery] no visual src for product', p?.id);
       return;
     }
     imgEl.src = src;
@@ -122,12 +150,15 @@ async function openGallery(p) {
     updateUnifiedNav();
   }
 
-  closeBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
-  prevBtn.onclick = async () => { await prevImage(p); await update(); };
-  nextBtn.onclick = async () => { await nextImage(p); await update(); };
+  // wire controls safely (may be null for fallback but we've created them)
+  if (closeBtn) closeBtn.onclick = (ev) => { ev?.stopPropagation(); galleryModal.classList.add('hidden'); galleryModal.style.display = 'none'; updateUnifiedNav(); };
+  if (prevBtn) prevBtn.onclick = async (ev) => { ev?.stopPropagation(); await prevImage(p); await update(); };
+  if (nextBtn) nextBtn.onclick = async (ev) => { ev?.stopPropagation(); await nextImage(p); await update(); };
 
-  galleryModal.classList.remove('hidden');
-  update();
+  // ensure visible
+  try { galleryModal.classList.remove('hidden'); galleryModal.style.display = galleryModal.style.display || 'flex'; } catch(e){}
+
+  await update();
   setTimeout(()=> updateUnifiedNav(), 10);
 }
 
