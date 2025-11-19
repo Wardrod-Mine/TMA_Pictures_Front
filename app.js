@@ -861,9 +861,7 @@ function showDetail(productId){
         detailLong.appendChild(el);
       });
   }
-  switchViews(listView, detailView);
-  // ensure unified nav updated after final switchViews
-  setTimeout(()=> updateUnifiedNav(), 10);
+  // unified nav will be updated after the final switchViews below
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
@@ -882,7 +880,9 @@ function showDetail(productId){
     min: 24
   });
   detailImg.onclick = () => openGallery(p);
+  // final switch to detail view — update unified nav shortly after to reflect new state
   switchViews(listView, detailView);
+  setTimeout(()=> updateUnifiedNav(), 10);
 }
 
 
