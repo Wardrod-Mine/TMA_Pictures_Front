@@ -9,7 +9,23 @@ const detailShort = $('#detailShort');
 const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
-const unifiedNavBtn = document.getElementById('unifiedNavBtn');
+const unifiedNavBtn = document.getElementById('unifiedNavBtn') || (function(){
+  try {
+    const b = document.createElement('button');
+    b.id = 'unifiedNavBtn';
+    b.type = 'button';
+    b.className = 'hidden rounded px-3 py-1 text-sm';
+    b.setAttribute('aria-label', 'Навигация');
+    b.style.position = 'fixed';
+    b.style.left = '12px';
+    b.style.top = '12px';
+    b.style.zIndex = '1200';
+    b.style.background = 'rgba(0,0,0,0.6)';
+    b.style.color = 'white';
+    document.body.appendChild(b);
+    return b;
+  } catch (e) { return null; }
+})();
 const tg = window.Telegram?.WebApp;
 let galleryModal = document.getElementById('galleryModal');
 function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
@@ -803,6 +819,14 @@ function showDetail(productId){
     min: 24
   });
   detailImg.onclick = () => openGallery(p);
+  // explicitly show unified nav for detail (ensure back button visible)
+  try {
+    if (unifiedNavBtn) {
+      unifiedNavBtn.classList.remove('hidden');
+      unifiedNavBtn.textContent = 'К списку';
+      unifiedNavBtn.onclick = () => { showList(); };
+    }
+  } catch (e) {}
   // final switch to detail view — update unified nav shortly after to reflect new state
   switchViews(listView, detailView);
   setTimeout(()=> updateUnifiedNav(), 10);
