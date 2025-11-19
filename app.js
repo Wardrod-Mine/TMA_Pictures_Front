@@ -261,6 +261,21 @@ const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
 
+const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
+function loadProductsCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
+}
+function saveProductsCache(list) {
+  try { localStorage.setItem(CACHE_KEY_PRODUCTS, JSON.stringify(list || [])); } catch {}
+}
+function normalizeProducts(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.items))     return payload.items;
+  if (payload && Array.isArray(payload.data))      return payload.data;
+  if (payload && Array.isArray(payload.products))  return payload.products;
+  return [];
+}
+
 async function fetchWithRetry(url, opts = {}, retries = 2, delay = 700){
   for (let i = 0; i <= retries; i++){
     try{
