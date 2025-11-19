@@ -10,6 +10,8 @@ const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
+const tg = window.Telegram?.WebApp;
+const inTelegram = Boolean(tg && typeof tg.initData !== 'undefined');
 const consultBtn = $('#consultBtn');
 const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
