@@ -147,19 +147,16 @@ async function openGallery(p) {
     }
     imgEl.src = src;
     imgEl.alt = p.title || '';
-    updateUnifiedNav();
   }
 
-  // wire controls safely (may be null for fallback but we've created them)
   if (closeBtn) closeBtn.onclick = (ev) => { ev?.stopPropagation(); galleryModal.classList.add('hidden'); galleryModal.style.display = 'none'; updateUnifiedNav(); };
   if (prevBtn) prevBtn.onclick = async (ev) => { ev?.stopPropagation(); await prevImage(p); await update(); };
   if (nextBtn) nextBtn.onclick = async (ev) => { ev?.stopPropagation(); await nextImage(p); await update(); };
 
-  // ensure visible
   try {
     galleryModal.classList.remove('hidden');
-    galleryModal.style.display = 'flex';
-  } catch (e) {}
+    galleryModal.style.display = 'flex';   
+  } catch(e){}
   await update();
   setTimeout(()=> updateUnifiedNav(), 10);
 }
@@ -724,7 +721,6 @@ function updateUnifiedNav() {
   }
 
   if (galleryOpen) {
-    // if detail is visible, use detail button; otherwise use header
     if (detailVisible) {
       const btn = ensureDetailNavBtn();
       if (btn && !detailView.contains(btn)) { detailView.style.position = detailView.style.position || 'relative'; detailView.appendChild(btn); }
@@ -750,6 +746,9 @@ function updateUnifiedNav() {
   }
 
   if (detailVisible) {
+    if (galleryModal && galleryModal.style.display === 'flex') {
+      return;
+    }
     const btn = ensureDetailNavBtn();
     if (btn && !detailView.contains(btn)) {
       detailView.style.position = detailView.style.position || 'relative';
@@ -761,18 +760,14 @@ function updateUnifiedNav() {
       btn.onclick = () => { showList(); };
     }
 
-    // Одновременно показываем кнопку "Назад" в шапке
     if (unifiedNavBtn) {
       unifiedNavBtn.classList.remove('hidden');
       unifiedNavBtn.textContent = 'Назад';
       unifiedNavBtn.onclick = () => { showList(); };
     }
-
     return;
   }
 
-
-  // default: hide both
   if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); unifiedNavBtn.onclick = null; }
   if (detailNavBtn && detailNavBtn.parentNode) { try { detailNavBtn.classList.add('hidden'); detailNavBtn.onclick = null; } catch(e){} }
 }
