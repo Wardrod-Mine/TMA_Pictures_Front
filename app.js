@@ -11,6 +11,7 @@ const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
 const tg = window.Telegram?.WebApp;
+let galleryModal = document.getElementById('galleryModal');
 function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
 const consultBtn = $('#consultBtn');
 const buyBtn = $('#buyBtn');
@@ -56,6 +57,57 @@ async function getVisualSrcFor(p) {
     catch { return ''; }
   }
   return src;
+}
+
+// helper: определяем, является ли ссылка PDF
+function isPdf(u) {
+  return typeof u === 'string' && /\.pdf(\?|$)/i.test(u);
+}
+
+// Открыть полноэкранную галерею/изображение
+async function openGallery(p) {
+  if (!p) return;
+  // ensure galleryModal exists
+  if (!galleryModal) {
+    galleryModal = document.createElement('div');
+    galleryModal.id = 'galleryModal';
+    galleryModal.className = 'hidden';
+    galleryModal.innerHTML = `
+      <div id="galleryInner" class="fixed inset-0 z-[1500] flex items-center justify-center p-4">
+        <div id="galleryBackdrop" class="absolute inset-0 bg-black/80"></div>
+        <button id="galleryClose" class="absolute top-4 right-4 z-[1510] bg-black/60 text-white rounded px-3 py-1">✕</button>
+        <button id="galleryPrev" class="absolute left-4 z-[1510] text-white text-3xl">‹</button>
+        <img id="galleryImg" src="" class="max-w-[90%] max-h-[90%] z-[1510] rounded shadow-lg" />
+        <button id="galleryNext" class="absolute right-4 z-[1510] text-white text-3xl">›</button>
+      </div>
+    `;
+    document.body.appendChild(galleryModal);
+  }
+
+  const imgEl = galleryModal.querySelector('#galleryImg');
+  const closeBtn = galleryModal.querySelector('#galleryClose');
+  const prevBtn = galleryModal.querySelector('#galleryPrev');
+  const nextBtn = galleryModal.querySelector('#galleryNext');
+
+  async function update() {
+    const src = await getVisualSrcFor(p);
+    if (!src) {
+      imgEl.src = '';
+      imgEl.alt = p.title || '';
+      return;
+    }
+    imgEl.src = src;
+    imgEl.alt = p.title || '';
+    updateUnifiedNav();
+  }
+
+  closeBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
+  prevBtn.onclick = async () => { await prevImage(p); await update(); };
+  nextBtn.onclick = async () => { await nextImage(p); await update(); };
+
+  galleryModal.classList.remove('hidden');
+  update();
+  setTimeout(()=> updateUnifiedNav(), 10);
 }
 
 async function setDetailVisual(p, withSwipeClass) {
