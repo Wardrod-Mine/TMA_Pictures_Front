@@ -302,6 +302,24 @@ if (inTelegram) {
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 
   tg.onEvent('themeChanged', applyThemeFromTelegram);
+
+  // Ensure Telegram back button is initially hidden and register handler
+  try {
+    if (typeof tg.showBackButton === 'function') tg.showBackButton(false);
+    if (typeof tg.onEvent === 'function') {
+      // back button pressed in Telegram header
+      tg.onEvent('backButtonPressed', () => {
+        try {
+          if (detailView && !detailView.classList.contains('hidden')) {
+            showList();
+            return;
+          }
+          // default fallback: try to close WebApp
+          if (typeof tg.close === 'function') tg.close();
+        } catch (e) { console.warn('backButtonPressed handler error', e); }
+      });
+    }
+  } catch (e) { console.warn('Telegram back button setup failed', e); }
 } else {
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 }
@@ -721,6 +739,10 @@ function updateUnifiedNav() {
   const adminView = document.getElementById('adminView');
   if (adminView) {
     console.log('[updateUnifiedNav] adminView open — showing Close');
+    // when using Telegram, prefer hiding the local nav button and keep TG back hidden
+    if (inTelegram && typeof tg?.showBackButton === 'function') {
+      try { tg.showBackButton(false); } catch {};
+    }
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => {
@@ -734,6 +756,8 @@ function updateUnifiedNav() {
   // gallery modal open -> close gallery and stay on product
   if (galleryModal && !galleryModal.classList.contains('hidden')) {
     console.log('[updateUnifiedNav] gallery open — showing К карточке');
+    // hide Telegram native back while using local unified button for gallery
+    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'К карточке';
     unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
@@ -743,6 +767,7 @@ function updateUnifiedNav() {
   // consult modal open -> close consult
   if (consultModal && !consultModal.classList.contains('hidden')) {
     console.log('[updateUnifiedNav] consult modal open — showing Close');
+    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeConsult(); updateUnifiedNav(); };
@@ -752,23 +777,30 @@ function updateUnifiedNav() {
   // request modal open -> close request
   if (requestModal && !requestModal.classList.contains('hidden')) {
     console.log('[updateUnifiedNav] request modal open — showing Close');
+    if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Закрыть';
     unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); };
     return;
   }
 
-  // product detail visible -> show 'К списку'
+  // product detail visible -> prefer Telegram back button; fall back to unified button
   if (detailView && !detailView.classList.contains('hidden')) {
-    console.log('[updateUnifiedNav] detail view visible — showing К списку');
-    unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'К списку';
-    unifiedNavBtn.onclick = () => { showList(); };
+    console.log('[updateUnifiedNav] detail view visible — prefer Telegram back');
+    if (inTelegram && typeof tg?.showBackButton === 'function') {
+      try { tg.showBackButton(true); } catch (e) { console.warn('showBackButton error', e); }
+      unifiedNavBtn.classList.add('hidden');
+    } else {
+      unifiedNavBtn.classList.remove('hidden');
+      unifiedNavBtn.textContent = 'К списку';
+      unifiedNavBtn.onclick = () => { showList(); };
+    }
     return;
   }
 
   // otherwise hide
   console.log('[updateUnifiedNav] no matching state — hiding button');
+  if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
   unifiedNavBtn.classList.add('hidden');
   unifiedNavBtn.onclick = null;
 }
@@ -791,6 +823,8 @@ function showList() {
   // Update unified nav button and show list
   switchViews(detailView, listView);
   updateCartUI();
+  // hide Telegram back button when returning to list
+  if (inTelegram && typeof tg?.showBackButton === 'function') try { tg.showBackButton(false); } catch {};
   updateUnifiedNav();
 }
 
@@ -883,6 +917,10 @@ function showDetail(productId){
   // final switch to detail view — update unified nav shortly after to reflect new state
   switchViews(listView, detailView);
   setTimeout(()=> updateUnifiedNav(), 10);
+  // Ensure Telegram native back is shown for reliability in Telegram
+  if (inTelegram && typeof tg?.showBackButton === 'function') {
+    try { tg.showBackButton(true); } catch (e) { console.warn('showBackButton error', e); }
+  }
 }
 
 
