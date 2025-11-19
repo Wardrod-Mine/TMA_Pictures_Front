@@ -156,8 +156,10 @@ async function openGallery(p) {
   if (nextBtn) nextBtn.onclick = async (ev) => { ev?.stopPropagation(); await nextImage(p); await update(); };
 
   // ensure visible
-  try { galleryModal.classList.remove('hidden'); galleryModal.style.display = galleryModal.style.display || 'flex'; } catch(e){}
-
+  try {
+    galleryModal.classList.remove('hidden');
+    galleryModal.style.display = 'flex';
+  } catch (e) {}
   await update();
   setTimeout(()=> updateUnifiedNav(), 10);
 }
@@ -749,11 +751,26 @@ function updateUnifiedNav() {
 
   if (detailVisible) {
     const btn = ensureDetailNavBtn();
-    if (btn && !detailView.contains(btn)) { detailView.style.position = detailView.style.position || 'relative'; detailView.appendChild(btn); }
-    if (btn) { btn.classList.remove('hidden'); btn.textContent = 'К списку'; btn.onclick = () => { showList(); } }
-    if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); }
+    if (btn && !detailView.contains(btn)) {
+      detailView.style.position = detailView.style.position || 'relative';
+      detailView.appendChild(btn);
+    }
+    if (btn) {
+      btn.classList.remove('hidden');
+      btn.textContent = 'Назад';
+      btn.onclick = () => { showList(); };
+    }
+
+    // Одновременно показываем кнопку "Назад" в шапке
+    if (unifiedNavBtn) {
+      unifiedNavBtn.classList.remove('hidden');
+      unifiedNavBtn.textContent = 'Назад';
+      unifiedNavBtn.onclick = () => { showList(); };
+    }
+
     return;
   }
+
 
   // default: hide both
   if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); unifiedNavBtn.onclick = null; }
