@@ -260,6 +260,7 @@ function animateCardLeave(container, cb) {
 function closeRequest(){
   requestModal?.classList.add('hidden');
   requestContext = null;
+  updateUnifiedNav();
 }
 
 function modalShow(el){
@@ -615,8 +616,8 @@ function renderCards() {
     card.append(link, body);
     cardsRoot.appendChild(card);
   });
-    // refresh unified nav state after re-render
-    updateUnifiedNav();
+  // Проверка состояния после рендера карточек
+  updateUnifiedNav();
 }
 
 function switchViews(hideEl, showEl) {
@@ -625,11 +626,17 @@ function switchViews(hideEl, showEl) {
     setTimeout(() => {
       hideEl.classList.add('hidden'); hideEl.classList.remove('view-leave');
       showEl.classList.remove('hidden'); showEl.classList.add('view-enter');
-      setTimeout(() => showEl.classList.remove('view-enter'), 220);
+      setTimeout(() => {
+        showEl.classList.remove('view-enter');
+        updateUnifiedNav(); // Проверка состояния после переключения вида
+      }, 220);
     }, 180);
   } else {
     showEl.classList.remove('hidden'); showEl.classList.add('view-enter');
-    setTimeout(() => showEl.classList.remove('view-enter'), 220);
+    setTimeout(() => {
+      showEl.classList.remove('view-enter');
+      updateUnifiedNav(); // Проверка состояния после переключения вида
+    }, 220);
   }
 }
 
@@ -671,7 +678,11 @@ function openConsult(product){
   cName.value = ''; cContact.value = ''; cMsg.value = '';
   modalShow(consultModal);
 }
-function closeConsult(){ modalHide(consultModal); consultContext = null; }
+function closeConsult(){ 
+  modalHide(consultModal); 
+  consultContext = null;
+  updateUnifiedNav();
+}
 
 if (consultCancel) {
   consultCancel.addEventListener('click', closeConsult);
@@ -734,7 +745,11 @@ function goPrevCard() {
 // Функция возврата на один шаг назад
 function goBack() {
   const adminView = !!document.getElementById('adminView');
-  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden') && galleryModal.style.display !== 'none');
+  // Галерея открыта, если она существует, не имеет класса hidden и display не none
+  const galleryOpen = !!(galleryModal && 
+    !galleryModal.classList.contains('hidden') && 
+    galleryModal.style.display !== 'none' &&
+    window.getComputedStyle(galleryModal).display !== 'none');
   const consultOpen = !!(consultModal && !consultModal.classList.contains('hidden'));
   const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
@@ -787,8 +802,13 @@ function updateUnifiedNav() {
 
   try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
 
+  // Определение текущего состояния приложения
   const adminView = !!document.getElementById('adminView');
-  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden') && galleryModal.style.display !== 'none');
+  // Галерея открыта, если она существует, не имеет класса hidden и display не none
+  const galleryOpen = !!(galleryModal && 
+    !galleryModal.classList.contains('hidden') && 
+    galleryModal.style.display !== 'none' &&
+    window.getComputedStyle(galleryModal).display !== 'none');
   const consultOpen = !!(consultModal && !consultModal.classList.contains('hidden'));
   const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
@@ -811,6 +831,8 @@ async function nextImage(p) {
   if (!imgs.length) return;
   currentImageIndex = (currentImageIndex + 1) % imgs.length;
   await setDetailVisual(p, 'left');
+  // Проверка состояния после изменения изображения
+  updateUnifiedNav();
 }
 
 async function prevImage(p) {
@@ -818,6 +840,8 @@ async function prevImage(p) {
   if (!imgs.length) return;
   currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
   await setDetailVisual(p, 'right');
+  // Проверка состояния после изменения изображения
+  updateUnifiedNav();
 }
 
 function showList() {
@@ -947,8 +971,22 @@ function handleStartParam(raw){
   });
   handleStartParam(getStartParam());
   ensureAdminButton();
-  window.addEventListener('hashchange', () => { router(); });
+  window.addEventListener('hashchange', () => { 
+    router(); 
+    // Проверка состояния после изменения hash
+    setTimeout(() => updateUnifiedNav(), 100);
+  });
   router();
+  
+  // Проверка состояния после полной загрузки
+  setTimeout(() => updateUnifiedNav(), 200);
+  
+  // Проверка состояния при изменении видимости страницы
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      setTimeout(() => updateUnifiedNav(), 100);
+    }
+  });
 })();
 
 function router(){
@@ -963,7 +1001,8 @@ function router(){
   } else if (hash === '#/add') {
     showAdmin();
   }
-  updateUnifiedNav();
+  // Проверка состояния после роутинга (на случай если функции не вызвали updateUnifiedNav)
+  setTimeout(() => updateUnifiedNav(), 50);
 }
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
@@ -975,8 +1014,25 @@ async function ensureAdminButton(){
   const $admin = document.getElementById('adminBtn');
   const $add   = document.getElementById('addCardBtn');
 
-  const show = () => { $admin?.classList.remove('hidden'); };
+  const show = () => { 
+    $admin?.classList.remove('hidden');
+    // Добавляем обработчик клика для открытия админ-панели
+    if ($admin && !$admin.hasAttribute('data-listener-added')) {
+      $admin.addEventListener('click', () => {
+        location.hash = '#/admin';
+      });
+      $admin.setAttribute('data-listener-added', 'true');
+    }
+  };
   const hide = () => { $admin?.classList.add('hidden');  };
+
+  // Обработчик для кнопки "Добавить карточку"
+  if ($add && !$add.hasAttribute('data-listener-added')) {
+    $add.addEventListener('click', () => {
+      location.hash = '#/add';
+    });
+    $add.setAttribute('data-listener-added', 'true');
+  }
 
   if (!init_data) {
     window.__isAdmin = false;
@@ -995,12 +1051,19 @@ async function ensureAdminButton(){
     });
     const j = await res.json().catch(() => null);
     window.__isAdmin = Boolean(j && j.ok && j.isAdmin);
-    if (window.__isAdmin) show(); else hide();
+    if (window.__isAdmin) {
+      show();
+      if ($add) $add.classList.remove('hidden');
+    } else {
+      hide();
+      if ($add) $add.classList.add('hidden');
+    }
     renderCards();          // ← перерендер с/без кнопок
     updateUnifiedNav();
   } catch {
     window.__isAdmin = false;
     hide();
+    if ($add) $add.classList.add('hidden');
     renderCards();          // ← перерендер без кнопок
     updateUnifiedNav();
   }
@@ -1273,6 +1336,8 @@ function renderAdmin(){
   const view = document.createElement('main');
   view.id = 'adminView';
   view.className = 'max-w-5xl mx-auto p-4 fade-in';
+  // Убеждаемся, что админ-панель видна
+  view.style.display = 'block';
   view.innerHTML = `
     <div class="flex items-center gap-3 mb-3">
       <h2 class="text-lg font-semibold">Админка: карточки</h2>
@@ -1281,15 +1346,28 @@ function renderAdmin(){
   `;
 
   document.body.appendChild(view);
-  openAdminEdit(null);
-  updateUnifiedNav();
+  
+  // Открываем форму редактирования после небольшой задержки, чтобы DOM успел обновиться
+  setTimeout(() => {
+    openAdminEdit(null);
+    updateUnifiedNav();
+  }, 10);
 }
 
 function showAdmin(){
-  listView.classList.add('hidden'); detailView.classList.add('hidden');
-  const exist = document.getElementById('adminView'); if (exist) exist.remove();
+  // Скрываем все основные виды
+  if (listView) listView.classList.add('hidden');
+  if (detailView) detailView.classList.add('hidden');
+  
+  // Удаляем существующую админ-панель, если есть
+  const exist = document.getElementById('adminView');
+  if (exist) exist.remove();
+  
+  // Рендерим новую админ-панель
   renderAdmin();
-  updateUnifiedNav();
+  
+  // Обновляем навигацию после показа админки
+  setTimeout(() => updateUnifiedNav(), 50);
 }
 
 // router() определён выше; эта версия была дублирована и удалена
