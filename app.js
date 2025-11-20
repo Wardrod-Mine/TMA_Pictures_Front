@@ -10,7 +10,6 @@ const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
-// detail-specific nav button (tied to the product card) — create on demand
 let detailNavBtn = document.getElementById('unifiedNavBtnDetail') || null;
 
 function ensureDetailNavBtn() {
@@ -35,19 +34,30 @@ const tg = window.Telegram?.WebApp;
 let galleryModal = document.getElementById('galleryModal');
 function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
 const consultBtn = $('#consultBtn');
+const consultBtnMain = $('#consultBtnMain');
+const consultProductTitle = $('#consultProductTitle');
+const cName = $('#cName');
+const cContact = $('#cContact');
+const cMsg = $('#cMsg');
+const consultCancel = $('#consultCancel');
+const consultModal = $('#consultModal');
+const consultForm = $('#consultForm');
 const buyBtn = $('#buyBtn');
 const cartBtn = $('#cartBtn');
 const cartCount = $('#cartCount');
 const toastEl = $('#toast');
-const consultModal = $('#consultModal');
-const consultForm = $('#consultForm');
-
-// state
+const requestModal = $('#requestModal');
+const requestForm = $('#requestForm');
+const requestProductTitle = $('#requestProductTitle');
+const rName = $('#rName');
+const rPhone = $('#rPhone');
+const rCity = $('#rCity');
+const rComment = $('#rComment');
+const requestCancel = $('#requestCancel');
 let requestContext = null;
 let currentIndex = 0;
 let currentImageIndex = 0;
 
-// helper: безопасно взять первую картинку/текущий src
 function currentImage(p) {
   const arr = Array.isArray(p?.imgs) ? p.imgs : [];
   if (!arr.length) return '';
@@ -80,19 +90,15 @@ async function getVisualSrcFor(p) {
   return src;
 }
 
-// helper: определяем, является ли ссылка PDF
 function isPdf(u) {
   return typeof u === 'string' && /\.pdf(\?|$)/i.test(u);
 }
 
-// Открыть полноэкранную галерею/изображение
 async function openGallery(p) {
   if (!p) return;
 
-  // ensure we have a reference to the DOM modal (try to re-query in case DOM changed)
   if (!galleryModal) galleryModal = document.getElementById('galleryModal') || null;
 
-  // if gallery DOM isn't present or missing internals, create a minimal fallback
   let createdFallback = false;
   if (!galleryModal || !galleryModal.querySelector || !galleryModal.querySelector('#galleryImg')) {
     console.debug('[openGallery] galleryModal missing or incomplete, creating fallback modal');
@@ -135,7 +141,6 @@ async function openGallery(p) {
       src = '';
     }
     if (!src) {
-      // as fallback try the first available string from p.imgs
       const arr = Array.isArray(p?.imgs) ? p.imgs : [];
       src = (arr[0] && typeof arr[0] === 'string') ? arr[0] : src;
     }
@@ -261,19 +266,23 @@ function openRequest(product){
   if (requestModal) modalShow(requestModal);
 }
 
-requestCancel.addEventListener('click', closeRequest);
+if (requestCancel) {
+  requestCancel.addEventListener('click', closeRequest);
+}
 
-requestModal.addEventListener('click', (e)=>{
-  if (e.target === requestModal) closeRequest();
-});
+if (requestModal) {
+  requestModal.addEventListener('click', (e)=>{
+    if (e.target === requestModal) closeRequest();
+  });
+}
 
-requestForm.addEventListener('submit', (e) => {
+if (requestForm) requestForm.addEventListener('submit', (e) => {
   e.preventDefault();
 
   const name  = rName?.value?.trim()  || '';
   const phone = rPhone?.value?.trim() || '';
-  const city  = (window.rCity?.value || '').trim();
-  const comment = (window.rComment?.value || '').trim();
+  const city  = (rCity?.value || '').trim();
+  const comment = (rComment?.value || '').trim();
   const okName  = name.length >= 2;
   const okPhone = /^[+0-9()\-\s]{6,}$/.test(phone);
   if (!okName || !okPhone) { toast('Заполните имя и корректный телефон'); return; }
@@ -638,17 +647,21 @@ function openConsult(product){
 }
 function closeConsult(){ modalHide(consultModal); consultContext = null; }
 
-consultCancel.addEventListener('click', closeConsult);
-consultModal.addEventListener('click', (e)=>{
-  if (e.target === consultModal) closeConsult();
-});
+if (consultCancel) {
+  consultCancel.addEventListener('click', closeConsult);
+}
+if (consultModal) {
+  consultModal.addEventListener('click', (e)=>{
+    if (e.target === consultModal) closeConsult();
+  });
+}
 
 if (consultBtnMain) {
   consultBtnMain.addEventListener('click', () => openConsult(null));
 }
 
 // Отправка консультации
-consultForm.addEventListener('submit', (e) => {
+if (consultForm) consultForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const contact = cContact.value.trim();
   if (!contact) { toast('Укажите контакт'); return; }
