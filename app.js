@@ -800,8 +800,6 @@ function updateUnifiedNav() {
   if (now - window.__lastUpdateUnifiedNavTs < 100) return;
   window.__lastUpdateUnifiedNavTs = now;
 
-  try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
-
   // Определение текущего состояния приложения
   const adminView = !!document.getElementById('adminView');
   // Галерея открыта, если она существует, не имеет класса hidden и display не none
@@ -814,8 +812,18 @@ function updateUnifiedNav() {
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
   const listVisible = !!(listView && !listView.classList.contains('hidden'));
 
-  // Показываем кнопку только если есть куда возвращаться
-  if (galleryOpen || consultOpen || requestOpen || adminView || detailVisible) {
+  // Кнопка привязана к карточке - показываем только на карточке, НЕ в галерее
+  if (galleryOpen) {
+    // Галерея открыта - скрываем кнопку (она привязана к карточке, не к галерее)
+    unifiedNavBtn.classList.add('hidden');
+    unifiedNavBtn.onclick = null;
+  } else if (detailVisible) {
+    // Карточка открыта - показываем кнопку "Назад" (привязана к карточке)
+    unifiedNavBtn.classList.remove('hidden');
+    unifiedNavBtn.textContent = 'Назад';
+    unifiedNavBtn.onclick = goBack;
+  } else if (consultOpen || requestOpen || adminView) {
+    // В модалках и админке - показываем кнопку
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Назад';
     unifiedNavBtn.onclick = goBack;
