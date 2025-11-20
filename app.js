@@ -10,26 +10,6 @@ const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
-let detailNavBtn = document.getElementById('unifiedNavBtnDetail') || null;
-
-function ensureDetailNavBtn() {
-  if (detailNavBtn && detailNavBtn instanceof HTMLElement) return detailNavBtn;
-  try {
-    const b = document.createElement('button');
-    b.id = 'unifiedNavBtnDetail';
-    b.type = 'button';
-    b.className = 'unified-nav-btn-detail rounded px-3 py-1 text-sm';
-    b.setAttribute('aria-label', 'Назад к списку');
-    b.style.position = 'absolute';
-    b.style.left = '12px';
-    b.style.top = '12px';
-    b.style.zIndex = '1200';
-    b.style.background = 'rgba(0,0,0,0.6)';
-    b.style.color = 'white';
-    detailNavBtn = b;
-    return detailNavBtn;
-  } catch (e) { return null; }
-}
 const tg = window.Telegram?.WebApp;
 let galleryModal = document.getElementById('galleryModal');
 function isInTelegram(){ return Boolean(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.initData !== 'undefined'); }
@@ -95,16 +75,22 @@ function isPdf(u) {
 }
 
 async function openGallery(p) {
-  if (!p) return;
+  if (!p) {
+    console.warn('[openGallery] product is missing');
+    return;
+  }
 
-  if (!galleryModal) galleryModal = document.getElementById('galleryModal') || null;
+  // Получаем или создаем модальное окно галереи
+  if (!galleryModal) {
+    galleryModal = document.getElementById('galleryModal');
+  }
 
-  let createdFallback = false;
-  if (!galleryModal || !galleryModal.querySelector || !galleryModal.querySelector('#galleryImg')) {
-    console.debug('[openGallery] galleryModal missing or incomplete, creating fallback modal');
+  // Если галереи нет в DOM, создаем fallback
+  if (!galleryModal) {
+    console.debug('[openGallery] galleryModal missing, creating fallback modal');
     galleryModal = document.createElement('div');
     galleryModal.id = 'galleryModal';
-    galleryModal.className = '';
+    galleryModal.className = 'fixed inset-0 z-50 bg-black/90 flex items-center justify-center';
     galleryModal.style.position = 'fixed';
     galleryModal.style.inset = '0';
     galleryModal.style.display = 'flex';
@@ -113,13 +99,12 @@ async function openGallery(p) {
     galleryModal.style.background = 'rgba(0,0,0,0.9)';
     galleryModal.style.zIndex = '1500';
     galleryModal.innerHTML = `
-      <button id="galleryClose" style="position:absolute;top:12px;right:12px;z-index:1510;background:rgba(0,0,0,.5);color:white;padding:6px 8px;border-radius:6px">✕</button>
-      <button id="galleryPrev" style="position:absolute;left:12px;z-index:1510;color:white;font-size:28px">‹</button>
-      <img id="galleryImg" src="" style="max-width:90%;max-height:90%;z-index:1510;border-radius:6px" />
-      <button id="galleryNext" style="position:absolute;right:12px;z-index:1510;color:white;font-size:28px">›</button>
+      <button id="galleryClose" class="absolute top-4 right-4 px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20">✕</button>
+      <button id="galleryPrev" class="absolute left-3 md:left-6 px-3 py-2 rounded bg-white/10 text-white hover:bg-white/20">‹</button>
+      <img id="galleryImg" alt="" class="max-h-[92vh] max-w-[92vw] object-contain select-none">
+      <button id="galleryNext" class="absolute right-3 md:right-6 px-3 py-2 rounded bg-white/10 text-white hover:bg-white/20">›</button>
     `;
     document.body.appendChild(galleryModal);
-    createdFallback = true;
   }
 
   const imgEl = galleryModal.querySelector('#galleryImg');
@@ -128,11 +113,12 @@ async function openGallery(p) {
   const nextBtn = galleryModal.querySelector('#galleryNext');
 
   if (!imgEl) {
-    console.warn('[openGallery] gallery image element not found — aborting');
+    console.error('[openGallery] gallery image element not found — aborting');
     return;
   }
 
-  async function update() {
+  // Функция обновления изображения в галерее
+  async function updateGalleryImage() {
     let src = '';
     try {
       src = await getVisualSrcFor(p);
@@ -140,30 +126,70 @@ async function openGallery(p) {
       console.warn('[openGallery] getVisualSrcFor error', err);
       src = '';
     }
+    
+    // Если не получилось получить изображение, пробуем взять первое из массива
     if (!src) {
       const arr = Array.isArray(p?.imgs) ? p.imgs : [];
-      src = (arr[0] && typeof arr[0] === 'string') ? arr[0] : src;
+      if (arr.length > 0) {
+        const firstImg = arr[currentImageIndex] || arr[0];
+        if (typeof firstImg === 'string') {
+          src = firstImg;
+        } else if (firstImg && typeof firstImg === 'object') {
+          src = firstImg.url || firstImg.path || '';
+        }
+      }
     }
+    
     if (!src) {
       imgEl.src = '';
       imgEl.alt = p.title || '';
       console.warn('[openGallery] no visual src for product', p?.id);
       return;
     }
+    
     imgEl.src = src;
     imgEl.alt = p.title || '';
   }
 
-  if (closeBtn) closeBtn.onclick = (ev) => { ev?.stopPropagation(); galleryModal.classList.add('hidden'); galleryModal.style.display = 'none'; updateUnifiedNav(); };
-  if (prevBtn) prevBtn.onclick = async (ev) => { ev?.stopPropagation(); await prevImage(p); await update(); };
-  if (nextBtn) nextBtn.onclick = async (ev) => { ev?.stopPropagation(); await nextImage(p); await update(); };
+  // Обработчики кнопок
+  if (closeBtn) {
+    closeBtn.onclick = (ev) => {
+      ev?.stopPropagation();
+      galleryModal.classList.add('hidden');
+      galleryModal.style.display = 'none';
+      updateUnifiedNav();
+    };
+  }
+  
+  if (prevBtn) {
+    prevBtn.onclick = async (ev) => {
+      ev?.stopPropagation();
+      await prevImage(p);
+      await updateGalleryImage();
+    };
+  }
+  
+  if (nextBtn) {
+    nextBtn.onclick = async (ev) => {
+      ev?.stopPropagation();
+      await nextImage(p);
+      await updateGalleryImage();
+    };
+  }
 
+  // Показываем галерею
   try {
     galleryModal.classList.remove('hidden');
-    galleryModal.style.display = 'flex';   
-  } catch(e){}
-  await update();
-  setTimeout(()=> updateUnifiedNav(), 10);
+    galleryModal.style.display = 'flex';
+  } catch(e) {
+    console.error('[openGallery] error showing modal', e);
+  }
+  
+  // Обновляем изображение
+  await updateGalleryImage();
+  
+  // Обновляем навигацию
+  setTimeout(() => updateUnifiedNav(), 10);
 }
 
 async function setDetailVisual(p, withSwipeClass) {
@@ -660,7 +686,6 @@ if (consultBtnMain) {
   consultBtnMain.addEventListener('click', () => openConsult(null));
 }
 
-// Отправка консультации
 if (consultForm) consultForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const contact = cContact.value.trim();
@@ -706,10 +731,55 @@ function goPrevCard() {
   });
 }
 
-// Unified navigation button updater
+// Функция возврата на один шаг назад
+function goBack() {
+  const adminView = !!document.getElementById('adminView');
+  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden') && galleryModal.style.display !== 'none');
+  const consultOpen = !!(consultModal && !consultModal.classList.contains('hidden'));
+  const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
+  const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
+
+  // Схема: главное меню > карточка > галерея фото в карточке
+  if (galleryOpen) {
+    // Если открыта галерея → закрыть галерею (вернуться к карточке)
+    galleryModal.classList.add('hidden');
+    galleryModal.style.display = 'none';
+    updateUnifiedNav();
+    return;
+  }
+
+  if (consultOpen) {
+    closeConsult();
+    updateUnifiedNav();
+    return;
+  }
+
+  if (requestOpen) {
+    closeRequest();
+    updateUnifiedNav();
+    return;
+  }
+
+  if (adminView) {
+    const el = document.getElementById('adminView');
+    if (el) el.remove();
+    showList();
+    return;
+  }
+
+  if (detailVisible) {
+    // Если открыта карточка → вернуться к списку
+    showList();
+    return;
+  }
+
+  // Если открыт список → ничего не делаем (кнопка скрыта)
+}
+
 function updateUnifiedNav() {
-  if (!unifiedNavBtn && !detailNavBtn) return;
-  // throttle to avoid excessive runs
+  if (!unifiedNavBtn) return;
+  
+  // Throttle для избежания избыточных вызовов
   if (!window.__lastUpdateUnifiedNavTs) window.__lastUpdateUnifiedNavTs = 0;
   const now = Date.now();
   if (now - window.__lastUpdateUnifiedNavTs < 100) return;
@@ -718,71 +788,22 @@ function updateUnifiedNav() {
   try { unifiedNavBtn.style.zIndex = '1200'; } catch (e) {}
 
   const adminView = !!document.getElementById('adminView');
-  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden'));
+  const galleryOpen = !!(galleryModal && !galleryModal.classList.contains('hidden') && galleryModal.style.display !== 'none');
   const consultOpen = !!(consultModal && !consultModal.classList.contains('hidden'));
   const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
+  const listVisible = !!(listView && !listView.classList.contains('hidden'));
 
-  if (adminView) {
-    // prefer header unifiedNavBtn for admin view
-    if (unifiedNavBtn) {
-      unifiedNavBtn.classList.remove('hidden');
-      unifiedNavBtn.textContent = 'Закрыть';
-      unifiedNavBtn.onclick = () => { const el = document.getElementById('adminView'); if (el) el.remove(); showList(); };
-    }
-    return;
-  }
-
-  if (galleryOpen) {
-    if (detailVisible) {
-      const btn = ensureDetailNavBtn();
-      if (btn && !detailView.contains(btn)) { detailView.style.position = detailView.style.position || 'relative'; detailView.appendChild(btn); }
-      if (btn) { btn.classList.remove('hidden'); btn.textContent = 'К карточке'; btn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); }; }
-    } else if (unifiedNavBtn) {
-      unifiedNavBtn.classList.remove('hidden');
-      unifiedNavBtn.textContent = 'К карточке';
-      unifiedNavBtn.onclick = () => { galleryModal.classList.add('hidden'); updateUnifiedNav(); };
-    }
-    return;
-  }
-
-  if (consultOpen) {
+  // Показываем кнопку только если есть куда возвращаться
+  if (galleryOpen || consultOpen || requestOpen || adminView || detailVisible) {
     unifiedNavBtn.classList.remove('hidden');
-    unifiedNavBtn.textContent = 'Закрыть';
-    unifiedNavBtn.onclick = () => { closeConsult(); updateUnifiedNav(); };
-    return;
+    unifiedNavBtn.textContent = 'Назад';
+    unifiedNavBtn.onclick = goBack;
+  } else if (listVisible) {
+    // На главном экране кнопка скрыта
+    unifiedNavBtn.classList.add('hidden');
+    unifiedNavBtn.onclick = null;
   }
-
-  if (requestOpen) {
-    if (unifiedNavBtn) { unifiedNavBtn.classList.remove('hidden'); unifiedNavBtn.textContent = 'Закрыть'; unifiedNavBtn.onclick = () => { closeRequest(); updateUnifiedNav(); }; }
-    return;
-  }
-
-  if (detailVisible) {
-    if (galleryModal && galleryModal.style.display === 'flex') {
-      return;
-    }
-    const btn = ensureDetailNavBtn();
-    if (btn && !detailView.contains(btn)) {
-      detailView.style.position = detailView.style.position || 'relative';
-      detailView.appendChild(btn);
-    }
-    if (btn) {
-      btn.classList.remove('hidden');
-      btn.textContent = 'Назад';
-      btn.onclick = () => { showList(); };
-    }
-
-    if (unifiedNavBtn) {
-      unifiedNavBtn.classList.remove('hidden');
-      unifiedNavBtn.textContent = 'Назад';
-      unifiedNavBtn.onclick = () => { showList(); };
-    }
-    return;
-  }
-
-  if (unifiedNavBtn) { unifiedNavBtn.classList.add('hidden'); unifiedNavBtn.onclick = null; }
-  if (detailNavBtn && detailNavBtn.parentNode) { try { detailNavBtn.classList.add('hidden'); detailNavBtn.onclick = null; } catch(e){} }
 }
 
 async function nextImage(p) {
@@ -800,9 +821,6 @@ async function prevImage(p) {
 }
 
 function showList() {
-  // Update unified nav button and show list
-  // hide/remove nav from detail card
-  try { if (detailNavBtn && detailNavBtn.parentNode && detailNavBtn.parentNode.contains(detailNavBtn)) detailNavBtn.remove(); } catch (e) {}
   switchViews(detailView, listView);
   updateUnifiedNav();
 }
@@ -892,19 +910,6 @@ function showDetail(productId){
     min: 24
   });
   detailImg.onclick = () => openGallery(p);
-  // attach unified nav button into the detail card so it follows the card
-  try {
-    const btn = ensureDetailNavBtn();
-    if (btn) {
-      if (!detailView.contains(btn)) {
-        detailView.style.position = detailView.style.position || 'relative';
-        detailView.appendChild(btn);
-      }
-      btn.classList.remove('hidden');
-      btn.textContent = 'К списку';
-      btn.onclick = () => { showList(); };
-    }
-  } catch (e) {}
   // final switch to detail view — update unified nav shortly after to reflect new state
   switchViews(listView, detailView);
   setTimeout(()=> updateUnifiedNav(), 10);
@@ -926,6 +931,11 @@ function handleStartParam(raw){
 }
 
 (async function initApp(){
+  // Инициализация галереи после загрузки DOM
+  if (!galleryModal) {
+    galleryModal = document.getElementById('galleryModal');
+  }
+  
   await loadProducts();
   renderCards();
   cardsRoot.addEventListener('click', (e) => {
