@@ -59,18 +59,25 @@
   </style>
   <style>.hidden{display:none}</style>
   <style>
-    /* Unified nav button: fixed so it's visible above Telegram header */
-    #unifiedNavBtn{ position:fixed; left:12px; top:12px; z-index:2200; }
+    /* Unified nav button: встроена в header, не перекрывает название */
+    #unifiedNavBtn{ 
+      flex-shrink: 0;
+      order: -1; /* Кнопка всегда первой в flex-контейнере */
+    }
+    /* Когда кнопка скрыта, название остается на месте */
+    #unifiedNavBtn.hidden {
+      display: none;
+    }
   </style>
 </head>
 
 <body class="surface min-h-screen">
   <header class="px-4 py-3 border-b" style="border-color:var(--sep)">
     <div class="max-w-5xl mx-auto flex items-center gap-3">
-      <button id="unifiedNavBtn" class="btn rounded-lg px-3 py-2 text-sm hidden">Навигация</button>
-      <h1 class="text-lg font-semibold">Trun SHOP</h1>
-      <span class="ml-auto text-sm muted" id="usernameSlot"></span>
-      <button id="adminBtn" class="rounded-lg px-3 py-2 text-sm border hidden" style="border-color:var(--sep)">Admin</button>
+      <button id="unifiedNavBtn" class="btn rounded-lg px-3 py-2 text-sm hidden flex-shrink-0">Назад</button>
+      <h1 class="text-lg font-semibold flex-shrink-0">Trun SHOP</h1>
+      <span class="ml-auto text-sm muted flex-shrink-0" id="usernameSlot"></span>
+      <button id="adminBtn" class="rounded-lg px-3 py-2 text-sm border hidden flex-shrink-0" style="border-color:var(--sep)">Admin</button>
     </div>
   </header>
 
