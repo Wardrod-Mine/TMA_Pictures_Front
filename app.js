@@ -414,6 +414,9 @@ const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
 
+// fallback placeholder image (data URL SVG) — used when no image available
+const PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
+
 const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
 function loadProductsCache() {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY_PRODUCTS) || '[]'); } catch { return []; }
