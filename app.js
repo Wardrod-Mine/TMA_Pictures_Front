@@ -590,8 +590,9 @@ function renderCards() {
       editBtn.style.borderColor = 'var(--sep)';
       editBtn.onclick = (e) => {
         e.preventDefault();
-        showAdmin();
-        setTimeout(() => openAdminEdit(p.id), 0);
+        // open admin view and then open editor for this product
+        location.hash = '#/admin';
+        setTimeout(() => openAdminEdit(p.id), 30);
       };
 
       const delBtn = document.createElement('button');
@@ -934,20 +935,26 @@ function showDetail(productId){
   // openPdfBtn removed — PDF open feature disabled per request
 
   animateCardEnter(detailView);
-  attachSwipe(detailView, {
-    onLeft:  () => goNextCard(),
-    onRight: () => goPrevCard(),
-    min: 28
-  });
-  attachSwipe(detailImg, {
-    onLeft:  () => nextImage(p),
-    onRight: () => prevImage(p),
-    min: 24
-  });
-  detailImg.onclick = () => openGallery(p);
-  // final switch to detail view — update unified nav shortly after to reflect new state
+
   switchViews(listView, detailView);
-  setTimeout(()=> updateUnifiedNav(), 10);
+
+  // после переключения вьюхи — ПОВТОРНО навешиваем свайпы (DOM обновлён)
+  setTimeout(() => {
+    attachSwipe(detailView, {
+      onLeft:  () => goNextCard(),
+      onRight: () => goPrevCard(),
+      min: 28
+    });
+
+    attachSwipe(detailImg, {
+      onLeft:  () => nextImage(p),
+      onRight: () => prevImage(p),
+      min: 24
+    });
+
+    detailImg.onclick = () => openGallery(p);
+    updateUnifiedNav();
+  }, 30);
 }
 
 
@@ -1013,7 +1020,7 @@ function router(){
     showAdmin();
   }
   // Проверка состояния после роутинга (на случай если функции не вызвали updateUnifiedNav)
-  setTimeout(() => updateUnifiedNav(), 50);
+  updateUnifiedNav();
 }
 
 // ========== ADMIN: простая админка на клиенте (localStorage) ==========
@@ -1048,7 +1055,6 @@ async function ensureAdminButton(){
   if (!init_data) {
     window.__isAdmin = false;
     hide();
-    renderCards();          // ← перерендер без кнопок
     updateUnifiedNav();
     return;
   }
@@ -1069,13 +1075,11 @@ async function ensureAdminButton(){
       hide();
       if ($add) $add.classList.add('hidden');
     }
-    renderCards();          // ← перерендер с/без кнопок
     updateUnifiedNav();
   } catch {
     window.__isAdmin = false;
     hide();
     if ($add) $add.classList.add('hidden');
-    renderCards();          // ← перерендер без кнопок
     updateUnifiedNav();
   }
 }
@@ -1357,12 +1361,6 @@ function renderAdmin(){
   `;
 
   document.body.appendChild(view);
-  
-  // Открываем форму редактирования после небольшой задержки, чтобы DOM успел обновиться
-  setTimeout(() => {
-    openAdminEdit(null);
-    updateUnifiedNav();
-  }, 10);
 }
 
 function showAdmin(){
@@ -1378,7 +1376,7 @@ function showAdmin(){
   renderAdmin();
   
   // Обновляем навигацию после показа админки
-  setTimeout(() => updateUnifiedNav(), 50);
+  updateUnifiedNav();
 }
 
 // router() определён выше; эта версия была дублирована и удалена
