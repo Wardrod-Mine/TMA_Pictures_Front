@@ -938,23 +938,25 @@ function showDetail(productId){
 
   switchViews(listView, detailView);
 
-  // после переключения вьюхи — ПОВТОРНО навешиваем свайпы (DOM обновлён)
-  setTimeout(() => {
-    attachSwipe(detailView, {
-      onLeft:  () => goNextCard(),
-      onRight: () => goPrevCard(),
-      min: 28
-    });
+  // навешиваем свайпы только после того, как detailView реально показан
+  detailView.addEventListener('animationend', () => {
+    try {
+      attachSwipe(detailView, {
+        onLeft:  () => goNextCard(),
+        onRight: () => goPrevCard(),
+        min: 28
+      });
 
-    attachSwipe(detailImg, {
-      onLeft:  () => nextImage(p),
-      onRight: () => prevImage(p),
-      min: 24
-    });
+      attachSwipe(detailImg, {
+        onLeft:  () => nextImage(p),
+        onRight: () => prevImage(p),
+        min: 24
+      });
 
-    detailImg.onclick = () => openGallery(p);
+      detailImg.onclick = () => openGallery(p);
+    } catch (e) { console.warn('attachSwipe failed', e); }
     updateUnifiedNav();
-  }, 30);
+  }, { once: true });
 }
 
 
@@ -1074,6 +1076,10 @@ async function ensureAdminButton(){
     } else {
       hide();
       if ($add) $add.classList.add('hidden');
+    }
+    // если мы админ — перерендерим карточки чтобы показать кнопки edit/delete
+    if (window.__isAdmin) {
+      try { renderCards(); } catch(e) { console.warn('renderCards failed after admin check', e); }
     }
     updateUnifiedNav();
   } catch {
@@ -1375,6 +1381,11 @@ function showAdmin(){
   // Рендерим новую админ-панель
   renderAdmin();
   
+  // Если пришли на /add — сразу открыть форму создания новой карточки
+  if (location.hash === '#/add') {
+    try { openAdminEdit(null); } catch(e) { console.warn('openAdminEdit failed', e); }
+  }
+
   // Обновляем навигацию после показа админки
   updateUnifiedNav();
 }
