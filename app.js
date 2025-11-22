@@ -731,14 +731,18 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
 });
 
 function goNextCard() {
+  window.__swipeLock = true;
+  setTimeout(() => window.__swipeLock = false, 400);
+
   if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
   const next = (currentIndex + 1) % PRODUCTS.length;
-  animateCardLeave(detailView, () => {
-    location.hash = `#/product/${PRODUCTS[next].id}`;
-  });
+  location.hash = `#/product/${PRODUCTS[next].id}`;
 }
 
 function goPrevCard() {
+  window.__swipeLock = true;
+  setTimeout(() => window.__swipeLock = false, 400);
+
   if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
   const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
   animateCardLeave(detailView, () => {
@@ -748,6 +752,7 @@ function goPrevCard() {
 
 // Функция возврата на один шаг назад
 function goBack() {
+  if (window.__swipeLock) return;
   const adminView = !!document.getElementById('adminView');
   // Галерея открыта, если она существует, не имеет класса hidden и display не none
   const galleryOpen = !!(galleryModal && 
@@ -937,6 +942,7 @@ function showDetail(productId){
   animateCardEnter(detailView);
 
   switchViews(listView, detailView);
+  detailView.classList.remove('hidden');
 
   // навешиваем свайпы только после того, как detailView реально показан
   detailView.addEventListener('animationend', () => {
@@ -1044,6 +1050,14 @@ async function ensureAdminButton(){
       $admin.setAttribute('data-listener-added', 'true');
     }
   };
+  if ($admin) {
+    $admin.onclick = () => {
+        const exist = document.getElementById('adminView');
+        if (exist) exist.remove();
+        location.hash = '#/admin';
+    };
+  }
+
   const hide = () => { $admin?.classList.add('hidden');  };
 
   // Обработчик для кнопки "Добавить карточку"
@@ -1326,7 +1340,12 @@ function openAdminEdit(id){
 
       // закрыть форму и перейти на карточку
       toast('Сохранено');
-      root.innerHTML = '';
+      const view = document.getElementById('adminView');
+      if (view) view.remove();
+
+      showList();
+      updateUnifiedNav();
+
       location.hash = `#/product/${base.id}`;
 
       // фоновая синхронизация: если сервер вернёт «настоящий» id — переоткроем
@@ -1377,6 +1396,14 @@ function showAdmin(){
   // Удаляем существующую админ-панель, если есть
   const exist = document.getElementById('adminView');
   if (exist) exist.remove();
+  if ($admin && $admin.hasAttribute('data-listener-added')) {
+    $admin.onclick = () => {
+        const exist = document.getElementById('adminView');
+        if (exist) exist.remove(); // ← вот это главное
+        location.hash = '#/admin';
+    };
+}
+
   
   // Рендерим новую админ-панель
   renderAdmin();
