@@ -1013,15 +1013,12 @@ function handleStartParam(raw){
   ensureAdminButton();
   window.addEventListener('hashchange', () => { 
     router(); 
-    // Проверка состояния после изменения hash
     setTimeout(() => updateUnifiedNav(), 100);
   });
   router();
-  
-  // Проверка состояния после полной загрузки
+
   setTimeout(() => updateUnifiedNav(), 200);
   
-  // Проверка состояния при изменении видимости страницы
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       setTimeout(() => updateUnifiedNav(), 100);
@@ -1420,7 +1417,7 @@ function showAdmin(){
   if ($adminBtnEl && $adminBtnEl.hasAttribute('data-listener-added')) {
     $adminBtnEl.onclick = () => {
         const exist = document.getElementById('adminView');
-        if (exist) exist.remove(); // ← вот это главное
+        if (exist) exist.remove(); 
         location.hash = '#/admin';
     };
   }
