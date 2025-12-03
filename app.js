@@ -218,24 +218,38 @@ function toastOncePer30s(msg) {
 // Универсальный свайп-лисенер
 function attachSwipe(el, { onLeft, onRight, min = 30 }) {
   if (!el) return;
+  // Prevent attaching listeners multiple times to the same element
+  if (el.__swipeAttached) return;
+  el.__swipeAttached = true;
+
   let x0 = 0, y0 = 0, dx = 0, dy = 0, active = false;
-  el.addEventListener('touchstart', (e) => {
+  const onTouchStart = (e) => {
     const t = e.changedTouches[0];
     x0 = t.clientX; y0 = t.clientY; dx = 0; dy = 0; active = true;
-  }, { passive: true });
-  el.addEventListener('touchmove', (e) => {
+  };
+  const onTouchMove = (e) => {
     if (!active) return;
     const t = e.changedTouches[0];
     dx = t.clientX - x0; dy = t.clientY - y0;
-  }, { passive: true });
-  el.addEventListener('touchend', () => {
+  };
+  const onTouchEnd = () => {
     if (!active) return;
     active = false;
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > min) {
-      if (dx < 0 && typeof onLeft === 'function')  onLeft();
-      if (dx > 0 && typeof onRight === 'function') onRight();
+      try {
+        console.debug('[attachSwipe] swipe dx=', dx, 'el=', el.id || el.tagName);
+        if (dx < 0 && typeof onLeft === 'function')  onLeft();
+        if (dx > 0 && typeof onRight === 'function') onRight();
+      } catch (err) { console.error('swipe handler error', err); }
     }
-  }, { passive: true });
+  };
+
+  el.addEventListener('touchstart', onTouchStart, { passive: true });
+  el.addEventListener('touchmove', onTouchMove, { passive: true });
+  el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+  // store handlers so they can be removed later if needed
+  el.__swipeHandlers = { onTouchStart, onTouchMove, onTouchEnd };
 }
 
 // Анимация контейнера карточки (вход/выход)
@@ -1366,7 +1380,14 @@ function openAdminEdit(id){
     }
   });
 
-  root.querySelector('#adminCancel').addEventListener('click', ()=>{ root.innerHTML=''; showList(); updateUnifiedNav(); });
+  root.querySelector('#adminCancel').addEventListener('click', ()=>{
+    // Полностью удалить админ-панель (не просто скрыть содержимое),
+    // чтобы внешние проверки не думали, что админка всё ещё открыта.
+    const view = document.getElementById('adminView');
+    if (view) view.remove();
+    showList();
+    updateUnifiedNav();
+  });
 }
 
 function renderAdmin(){
