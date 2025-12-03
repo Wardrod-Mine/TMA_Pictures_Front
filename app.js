@@ -1381,12 +1381,8 @@ function openAdminEdit(id){
   });
 
   root.querySelector('#adminCancel').addEventListener('click', ()=>{
-    // Полностью удалить админ-панель (не просто скрыть содержимое),
-    // чтобы внешние проверки не думали, что админка всё ещё открыта.
     const view = document.getElementById('adminView');
     if (view) view.remove();
-    // Вернуться на главную и сбросить хэш, чтобы дальнейшее открытие админки
-    // снова вызвало роутер (hashchange) и корректно отрендерило панель.
     showList();
     updateUnifiedNav();
     try { location.hash = '#/'; } catch(e) { /* ignore */ }
@@ -1420,28 +1416,20 @@ function showAdmin(){
   // Удаляем существующую админ-панель, если есть
   const exist = document.getElementById('adminView');
   if (exist) exist.remove();
-  if ($admin && $admin.hasAttribute('data-listener-added')) {
-    $admin.onclick = () => {
+  const $adminBtnEl = document.getElementById('adminBtn');
+  if ($adminBtnEl && $adminBtnEl.hasAttribute('data-listener-added')) {
+    $adminBtnEl.onclick = () => {
         const exist = document.getElementById('adminView');
         if (exist) exist.remove(); // ← вот это главное
         location.hash = '#/admin';
     };
-}
-
-  
-  // Рендерим новую админ-панель
+  }
   renderAdmin();
-  
-  // Если пришли на /add — сразу открыть форму создания новой карточки
   if (location.hash === '#/add') {
     try { openAdminEdit(null); } catch(e) { console.warn('openAdminEdit failed', e); }
   }
-
-  // Обновляем навигацию после показа админки
   updateUnifiedNav();
 }
-
-// router() определён выше; эта версия была дублирована и удалена
 
 function openOrderForm(product) {
   const root = document.getElementById('root');
