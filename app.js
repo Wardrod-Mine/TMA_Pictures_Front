@@ -35,13 +35,11 @@ const rCity = $('#rCity');
 const rComment = $('#rComment');
 const requestCancel = $('#requestCancel');
 let requestContext = null;
-let currentIndex = 0;
-let currentImageIndex = 0;
 
 function currentImage(p) {
   const arr = Array.isArray(p?.imgs) ? p.imgs : [];
   if (!arr.length) return '';
-  const v = arr[currentImageIndex] || arr[0];
+  const v = arr[0]; // Changed from currentImageIndex to 0
   if (typeof v === 'string') return v;
   return v?.url || v?.path || '';
 }
@@ -131,7 +129,7 @@ async function openGallery(p) {
     if (!src) {
       const arr = Array.isArray(p?.imgs) ? p.imgs : [];
       if (arr.length > 0) {
-        const firstImg = arr[currentImageIndex] || arr[0];
+        const firstImg = arr[0]; // Changed from currentImageIndex to 0
         if (typeof firstImg === 'string') {
           src = firstImg;
         } else if (firstImg && typeof firstImg === 'object') {
@@ -744,29 +742,7 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
   closeConsult();
 });
 
-function goNextCard() {
-  window.__swipeLock = true;
-  setTimeout(() => window.__swipeLock = false, 400);
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) { showList(); return; }
-  const next = (currentIndex + 1) % PRODUCTS.length;
-  if (!PRODUCTS[next]) return; // safety check
-  location.hash = `#/product/${PRODUCTS[next].id}`;
-}
-
-function goPrevCard() {
-  window.__swipeLock = true;
-  setTimeout(() => window.__swipeLock = false, 400);
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) { showList(); return; }
-  const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
-  if (!PRODUCTS[prev]) return; // safety check
-  animateCardLeave(detailView, () => {
-    location.hash = `#/product/${PRODUCTS[prev].id}`;
-  });
-}
-
-// Функция возврата на один шаг назад
 function goBack() {
-  if (window.__swipeLock) return;
   const adminView = !!document.getElementById('adminView');
   // Галерея открыта, если она существует, не имеет класса hidden и display не none
   const galleryOpen = !!(galleryModal && 
@@ -859,7 +835,7 @@ function updateUnifiedNav() {
 async function nextImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
-  currentImageIndex = (currentImageIndex + 1) % imgs.length;
+  // currentImageIndex = (currentImageIndex + 1) % imgs.length; // Removed
   await setDetailVisual(p, 'left');
   // Проверка состояния после изменения изображения
   updateUnifiedNav();
@@ -868,7 +844,7 @@ async function nextImage(p) {
 async function prevImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
-  currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
+  // currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length; // Removed
   await setDetailVisual(p, 'right');
   // Проверка состояния после изменения изображения
   updateUnifiedNav();
@@ -876,21 +852,77 @@ async function prevImage(p) {
 
 function showList() {
   // Сброс индексов для карусели и swipe
-  currentIndex = 0;
-  currentImageIndex = 0;
+  // currentIndex = 0; // Removed
+  // currentImageIndex = 0; // Removed
 
   // Удаление swipe обработчиков, если уже есть
-  detachSwipe(detailView);
-  detachSwipe(detailImg);
+  // detachSwipe(detailView); // Removed
+  // detachSwipe(detailImg); // Removed
 
   switchViews(detailView, listView);
   updateUnifiedNav();
 }
 
+let currentCardIndex = 0;
+
+function showDetailByIndex(idx) {
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  if (idx < 0) idx = PRODUCTS.length - 1;
+  if (idx >= PRODUCTS.length) idx = 0;
+  currentCardIndex = idx;
+  showDetail(PRODUCTS[idx].id);
+}
+
+function showPrevCard() { showDetailByIndex(currentCardIndex - 1); }
+function showNextCard() { showDetailByIndex(currentCardIndex + 1); }
+
+function attachSwipe(el, { onLeft, onRight, min = 30 }) {
+  if (!el) return;
+  // Prevent attaching listeners multiple times to the same element
+  if (el.__swipeAttached) return;
+  el.__swipeAttached = true;
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, active = false;
+  const onTouchStart = (e) => {
+    const t = e.changedTouches[0];
+    x0 = t.clientX; y0 = t.clientY; dx = 0; dy = 0; active = true;
+  };
+  const onTouchMove = (e) => {
+    if (!active) return;
+    const t = e.changedTouches[0];
+    dx = t.clientX - x0; dy = t.clientY - y0;
+  };
+  const onTouchEnd = () => {
+    if (!active) return;
+    active = false;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > min) {
+      try {
+        if (dx < 0 && typeof onLeft === 'function')  onLeft();
+        if (dx > 0 && typeof onRight === 'function') onRight();
+      } catch (err) { }
+    }
+  };
+  el.addEventListener('touchstart', onTouchStart, { passive: true });
+  el.addEventListener('touchmove', onTouchMove, { passive: true });
+  el.addEventListener('touchend', onTouchEnd, { passive: true });
+  el.__swipeHandlers = { onTouchStart, onTouchMove, onTouchEnd };
+}
+function detachSwipe(el) {
+  if (!el || !el.__swipeHandlers) return;
+  const { onTouchStart, onTouchMove, onTouchEnd } = el.__swipeHandlers;
+  el.removeEventListener('touchstart', onTouchStart);
+  el.removeEventListener('touchmove', onTouchMove);
+  el.removeEventListener('touchend', onTouchEnd);
+  el.__swipeAttached = false;
+  el.__swipeHandlers = undefined;
+}
+
 function showDetail(productId){
   const p = PRODUCTS.find(x => x.id === productId);
-  currentIndex = Math.max(0, PRODUCTS.findIndex(x => x.id === productId));
-  currentImageIndex = 0;
+  let idx = PRODUCTS.findIndex(x => x.id === productId);
+  if (idx === -1) return;
+  currentCardIndex = idx;
+  // currentIndex = Math.max(0, PRODUCTS.findIndex(x => x.id === productId)); // Removed
+  // currentImageIndex = 0; // Removed
   if (!p) return showList();
 
   const img = currentImage(p);
@@ -914,7 +946,7 @@ function showDetail(productId){
     tn.src = src;
     tn.className = 'w-20 h-12 object-cover rounded cursor-pointer border';
     tn.onclick = async () => {
-      currentImageIndex = idx;
+      // currentImageIndex = idx; // Removed
       await setDetailVisual(p);
     };
     galleryRoot.appendChild(tn);
@@ -956,33 +988,31 @@ function showDetail(productId){
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
-  // openPdfBtn removed — PDF open feature disabled per request
-
-  animateCardEnter(detailView);
 
   switchViews(listView, detailView);
   detailView.classList.remove('hidden');
 
-  // навешиваем свайпы только после того, как detailView реально показан
-  // всегда предварительно удаляем старые обработчики (если есть)
-  detailView.addEventListener('animationend', () => {
-    try {
-      detachSwipe(detailView);
-      detachSwipe(detailImg);
-      attachSwipe(detailView, {
-        onLeft:  () => goNextCard(),
-        onRight: () => goPrevCard(),
-        min: 28
-      });
-      attachSwipe(detailImg, {
-        onLeft:  () => nextImage(p),
-        onRight: () => prevImage(p),
-        min: 24
-      });
-      detailImg.onclick = () => openGallery(p);
-    } catch (e) { console.warn('attachSwipe failed', e); }
-    updateUnifiedNav();
-  }, { once: true });
+  // Вставить две кнопки (если карточек больше 1)
+  // Сначала удалить прошлые:
+  const oldPrev = detailView.querySelector('.carousel-prev');
+  const oldNext = detailView.querySelector('.carousel-next');
+  if (oldPrev) oldPrev.remove();
+  if (oldNext) oldNext.remove();
+  if (PRODUCTS.length > 1) {
+    const prevBtn = document.createElement('button');
+    prevBtn.textContent = '←';
+    prevBtn.className = 'carousel-prev absolute left-2 top-1/2 -translate-y-1/2 z-20 px-3 py-2 rounded bg-white/20 text-black hover:bg-white/40';
+    prevBtn.onclick = (e) => { e.stopPropagation(); showPrevCard(); };
+    detailView.appendChild(prevBtn);
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = '→';
+    nextBtn.className = 'carousel-next absolute right-2 top-1/2 -translate-y-1/2 z-20 px-3 py-2 rounded bg-white/20 text-black hover:bg-white/40';
+    nextBtn.onclick = (e) => { e.stopPropagation(); showNextCard(); };
+    detailView.appendChild(nextBtn);
+  }
+  // Повесить свайпы для detailView (переключение карточек)
+  detachSwipe(detailView);
+  attachSwipe(detailView, { onLeft: showNextCard, onRight: showPrevCard, min: 24 });
 }
 
 // Детачер свайпов для чистоты
