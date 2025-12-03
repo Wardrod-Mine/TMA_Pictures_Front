@@ -1385,8 +1385,11 @@ function openAdminEdit(id){
     // чтобы внешние проверки не думали, что админка всё ещё открыта.
     const view = document.getElementById('adminView');
     if (view) view.remove();
+    // Вернуться на главную и сбросить хэш, чтобы дальнейшее открытие админки
+    // снова вызвало роутер (hashchange) и корректно отрендерило панель.
     showList();
     updateUnifiedNav();
+    try { location.hash = '#/'; } catch(e) { /* ignore */ }
   });
 }
 
