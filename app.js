@@ -928,6 +928,7 @@ function showDetail(productId){
   const img = currentImage(p);
   detailImg.alt = p.title;
   setDetailVisual(p);
+  detailImg.onclick = () => openGallery(p); // теперь обработчик всегда актуален
 
   const galleryRootId = 'detailGalleryThumbs';
   let galleryRoot = document.getElementById(galleryRootId);
