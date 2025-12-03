@@ -747,18 +747,18 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
 function goNextCard() {
   window.__swipeLock = true;
   setTimeout(() => window.__swipeLock = false, 400);
-
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) { showList(); return; }
   const next = (currentIndex + 1) % PRODUCTS.length;
+  if (!PRODUCTS[next]) return; // safety check
   location.hash = `#/product/${PRODUCTS[next].id}`;
 }
 
 function goPrevCard() {
   window.__swipeLock = true;
   setTimeout(() => window.__swipeLock = false, 400);
-
-  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
+  if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) { showList(); return; }
   const prev = (currentIndex - 1 + PRODUCTS.length) % PRODUCTS.length;
+  if (!PRODUCTS[prev]) return; // safety check
   animateCardLeave(detailView, () => {
     location.hash = `#/product/${PRODUCTS[prev].id}`;
   });
@@ -835,23 +835,22 @@ function updateUnifiedNav() {
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
   const listVisible = !!(listView && !listView.classList.contains('hidden'));
 
-  // Кнопка привязана к карточке - показываем только на карточке, НЕ в галерее
-  if (galleryOpen) {
-    // Галерея открыта - скрываем кнопку (она привязана к карточке, не к галерее)
+  // Не показывать unifiedNavBtn в админке
+  if (adminView) {
+    unifiedNavBtn.classList.add('hidden');
+    unifiedNavBtn.onclick = null;
+  } else if (galleryOpen) {
     unifiedNavBtn.classList.add('hidden');
     unifiedNavBtn.onclick = null;
   } else if (detailVisible) {
-    // Карточка открыта - показываем кнопку "Назад" (привязана к карточке)
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Назад';
     unifiedNavBtn.onclick = goBack;
-  } else if (consultOpen || requestOpen || adminView) {
-    // В модалках и админке - показываем кнопку
+  } else if (consultOpen || requestOpen) {
     unifiedNavBtn.classList.remove('hidden');
     unifiedNavBtn.textContent = 'Назад';
     unifiedNavBtn.onclick = goBack;
   } else if (listVisible) {
-    // На главном экране кнопка скрыта
     unifiedNavBtn.classList.add('hidden');
     unifiedNavBtn.onclick = null;
   }
