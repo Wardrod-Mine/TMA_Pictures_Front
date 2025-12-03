@@ -876,6 +876,14 @@ async function prevImage(p) {
 }
 
 function showList() {
+  // Сброс индексов для карусели и swipe
+  currentIndex = 0;
+  currentImageIndex = 0;
+
+  // Удаление swipe обработчиков, если уже есть
+  detachSwipe(detailView);
+  detachSwipe(detailImg);
+
   switchViews(detailView, listView);
   updateUnifiedNav();
 }
@@ -883,9 +891,7 @@ function showList() {
 function showDetail(productId){
   const p = PRODUCTS.find(x => x.id === productId);
   currentIndex = Math.max(0, PRODUCTS.findIndex(x => x.id === productId));
-
   currentImageIndex = 0;
-
   if (!p) return showList();
 
   const img = currentImage(p);
@@ -959,26 +965,37 @@ function showDetail(productId){
   detailView.classList.remove('hidden');
 
   // навешиваем свайпы только после того, как detailView реально показан
+  // всегда предварительно удаляем старые обработчики (если есть)
   detailView.addEventListener('animationend', () => {
     try {
+      detachSwipe(detailView);
+      detachSwipe(detailImg);
       attachSwipe(detailView, {
         onLeft:  () => goNextCard(),
         onRight: () => goPrevCard(),
         min: 28
       });
-
       attachSwipe(detailImg, {
         onLeft:  () => nextImage(p),
         onRight: () => prevImage(p),
         min: 24
       });
-
       detailImg.onclick = () => openGallery(p);
     } catch (e) { console.warn('attachSwipe failed', e); }
     updateUnifiedNav();
   }, { once: true });
 }
 
+// Детачер свайпов для чистоты
+function detachSwipe(el) {
+  if (!el || !el.__swipeHandlers) return;
+  const { onTouchStart, onTouchMove, onTouchEnd } = el.__swipeHandlers;
+  el.removeEventListener('touchstart', onTouchStart);
+  el.removeEventListener('touchmove', onTouchMove);
+  el.removeEventListener('touchend', onTouchEnd);
+  el.__swipeAttached = false;
+  el.__swipeHandlers = undefined;
+}
 
 // ========= РОУТЕР/СТАРТ ================
 function getStartParam(){
