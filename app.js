@@ -118,34 +118,19 @@ async function openGallery(p) {
   // Функция обновления изображения в галерее
   async function updateGalleryImage() {
     let src = '';
-    try {
-      src = await getVisualSrcFor(p);
-    } catch (err) {
-      console.warn('[openGallery] getVisualSrcFor error', err);
-      src = '';
+    const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+    if (arr.length) {
+      const img = arr[currentGalleryIndex] || arr[0];
+      if (typeof img === 'string') src = img;
+      else if (img && typeof img === 'object') src = img.url || img.path || '';
     }
-    
-    // Если не получилось получить изображение, пробуем взять первое из массива
-    if (!src) {
-      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
-      if (arr.length > 0) {
-        const firstImg = arr[0]; // Changed from currentImageIndex to 0
-        if (typeof firstImg === 'string') {
-          src = firstImg;
-        } else if (firstImg && typeof firstImg === 'object') {
-          src = firstImg.url || firstImg.path || '';
-        }
-      }
-    }
-    
     if (!src) {
       imgEl.src = '';
       imgEl.alt = p.title || '';
       console.warn('[openGallery] no visual src for product', p?.id);
       return;
     }
-    
-    imgEl.src = src;
+    imgEl.src = src || PLACEHOLDER;
     imgEl.alt = p.title || '';
   }
 
@@ -162,7 +147,9 @@ async function openGallery(p) {
   if (prevBtn) {
     prevBtn.onclick = async (ev) => {
       ev?.stopPropagation();
-      await prevImage(p);
+      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+      if (!arr.length) return;
+      currentGalleryIndex = (currentGalleryIndex - 1 + arr.length) % arr.length;
       await updateGalleryImage();
     };
   }
@@ -170,7 +157,9 @@ async function openGallery(p) {
   if (nextBtn) {
     nextBtn.onclick = async (ev) => {
       ev?.stopPropagation();
-      await nextImage(p);
+      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+      if (!arr.length) return;
+      currentGalleryIndex = (currentGalleryIndex + 1) % arr.length;
       await updateGalleryImage();
     };
   }
@@ -864,6 +853,7 @@ function showList() {
 }
 
 let currentCardIndex = 0;
+let currentGalleryIndex = 0;
 
 function showDetailByIndex(idx) {
   if (!Array.isArray(PRODUCTS) || PRODUCTS.length === 0) return;
@@ -928,7 +918,7 @@ function showDetail(productId){
   const img = currentImage(p);
   detailImg.alt = p.title;
   setDetailVisual(p);
-  detailImg.onclick = () => openGallery(p); // теперь обработчик всегда актуален
+  detailImg.onclick = () => { currentGalleryIndex = 0; openGallery(p); };
 
   const galleryRootId = 'detailGalleryThumbs';
   let galleryRoot = document.getElementById(galleryRootId);
@@ -947,8 +937,8 @@ function showDetail(productId){
     tn.src = src;
     tn.className = 'w-20 h-12 object-cover rounded cursor-pointer border';
     tn.onclick = async () => {
-      // currentImageIndex = idx; // Removed
-      await setDetailVisual(p);
+      currentGalleryIndex = idx;
+      openGallery(p);
     };
     galleryRoot.appendChild(tn);
   });
