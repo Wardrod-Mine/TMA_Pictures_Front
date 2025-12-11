@@ -407,7 +407,12 @@ applyThemeFromTelegram();
 // Cart functionality removed (add-to-cart / cart) per request
 
 // ============ ДАННЫЕ ТОВАРОВ ================
-const API_BASE = (typeof __API_URL === 'string' && __API_URL) || window.API_BASE || '';
+// Надёжный base для API: берём из __API_URL / window.API_BASE, иначе дефолт
+const API_BASE = (
+  (typeof __API_URL === 'string' && __API_URL) ||
+  window.API_BASE ||
+  'https://trun.tmashop.ru/api'
+);
 const PRODUCTS_URL = API_BASE ? new URL('/products', API_BASE).toString() : '';
 const CREATE_URL   = API_BASE ? new URL('/product',  API_BASE).toString() : '';
 let PRODUCTS = [];
