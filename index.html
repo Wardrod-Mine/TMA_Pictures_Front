@@ -23,7 +23,23 @@
   <script>window.__API_URL = 'https://trun.tmashop.ru/api';</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
-  <script defer src="./app.js?v=2"></script>
+  <script>
+    (function () {
+      // Базовый URL API для продакшена
+      var defaultApi = 'https://trun.tmashop.ru/api';
+  
+      // Если переменная уже задана (локальная разработка) — не трогаем
+      if (!window.__API_URL) {
+        // Для localhost можно подстроиться под текущий origin
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+          window.__API_URL = location.origin.replace(/\/$/, '') + '/api';
+        } else {
+          window.__API_URL = defaultApi;
+        }
+      }
+    })();
+  </script>
+  <script src="app.js?v=3"></script>
 
   <style>
     :root{
@@ -196,5 +212,4 @@
     <button id="galleryNext"  class="absolute right-3 md:right-6 px-3 py-2 rounded bg-white/10 text-white hover:bg-white/20">›</button>
   </div>
 </body>
-
 </html>
