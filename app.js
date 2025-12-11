@@ -26,6 +26,7 @@ const detailShort = $('#detailShort');
 const detailBullets = $('#detailBullets');
 const detailLong = $('#detailLong');
 const usernameSlot = $('#usernameSlot');
+const adminStatus = document.getElementById('adminStatus');
 const unifiedNavBtn = document.getElementById('unifiedNavBtn');
 const tg = window.Telegram?.WebApp;
 let galleryModal = document.getElementById('galleryModal');
@@ -1104,28 +1105,21 @@ async function ensureAdminButton(){
   const init_data = tg?.initData || '';
   const init_data_unsafe = tg?.initDataUnsafe || null;
 
-  const $admin = document.getElementById('adminBtn');
   const $add   = document.getElementById('addCardBtn');
 
   const show = () => { 
-    $admin?.classList.remove('hidden');
-    // Добавляем обработчик клика для открытия админ-панели
-    if ($admin && !$admin.hasAttribute('data-listener-added')) {
-      $admin.addEventListener('click', () => {
-        location.hash = '#/admin';
-      });
-      $admin.setAttribute('data-listener-added', 'true');
+    if (adminStatus) {
+      adminStatus.textContent = 'Admin';
+      adminStatus.classList.remove('hidden');
     }
   };
-  if ($admin) {
-    $admin.onclick = () => {
-        const exist = document.getElementById('adminView');
-        if (exist) exist.remove();
-        location.hash = '#/admin';
-    };
-  }
 
-  const hide = () => { $admin?.classList.add('hidden');  };
+  const hide = () => { 
+    if (adminStatus) {
+      adminStatus.textContent = '';
+      adminStatus.classList.add('hidden');
+    }
+  };
 
   // Обработчик для кнопки "Добавить карточку"
   if ($add && !$add.hasAttribute('data-listener-added')) {
@@ -1469,14 +1463,7 @@ function showAdmin(){
   // Удаляем существующую админ-панель, если есть
   const exist = document.getElementById('adminView');
   if (exist) exist.remove();
-  const $adminBtnEl = document.getElementById('adminBtn');
-  if ($adminBtnEl && $adminBtnEl.hasAttribute('data-listener-added')) {
-    $adminBtnEl.onclick = () => {
-        const exist = document.getElementById('adminView');
-        if (exist) exist.remove(); 
-        location.hash = '#/admin';
-    };
-  }
+  // admin button removed; nothing to clean up here
   renderAdmin();
   if (location.hash === '#/add') {
     try { openAdminEdit(null); } catch(e) { console.warn('openAdminEdit failed', e); }
