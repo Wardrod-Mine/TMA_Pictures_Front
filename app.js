@@ -1,3 +1,20 @@
+// ===== API BASE =====
+const API_BASE = (() => {
+  try {
+    if (typeof window !== 'undefined') {
+      // если уже задано где-то снаружи (index.html) — используем его
+      if (typeof window.__API_URL === 'string' && window.__API_URL.trim()) {
+        return window.__API_URL.replace(/\/$/, '');
+      }
+      // локальная разработка
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        return location.origin.replace(/\/$/, '') + '/api';
+      }
+    }
+  } catch (e) {}
+  // дефолт для продакшена
+  return 'https://trun.tmashop.ru/api';
+})();
 // ====== УТИЛИТЫ/DOM ===========================================================
 const $ = (sel, root = document) => root.querySelector(sel);
 const listView = $('#listView');
@@ -359,7 +376,7 @@ if (isInTelegram()) {
 
 
 async function sendToBot(payload) {
-  const API = window.__API_URL; 
+  const API = API_BASE;
   try {
     console.log('[sendToBot] payload:', payload);
 
@@ -408,11 +425,6 @@ applyThemeFromTelegram();
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 // Надёжный base для API: берём из __API_URL / window.API_BASE, иначе дефолт
-const API_BASE = (
-  (typeof __API_URL === 'string' && __API_URL) ||
-  window.API_BASE ||
-  'https://trun.tmashop.ru/api'
-);
 const PRODUCTS_URL = API_BASE ? new URL('/products', API_BASE).toString() : '';
 const CREATE_URL   = API_BASE ? new URL('/product',  API_BASE).toString() : '';
 let PRODUCTS = [];
