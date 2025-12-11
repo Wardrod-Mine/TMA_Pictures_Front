@@ -6,14 +6,14 @@ const API_BASE = (() => {
       if (typeof window.__API_URL === 'string' && window.__API_URL.trim()) {
         return window.__API_URL.replace(/\/$/, '');
       }
-      // локальная разработка
+      // локальная разработка: ходим напрямую на порт/домен бэка, путь /api добавляем в new URL
       if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-        return location.origin.replace(/\/$/, '') + '/api';
+        return location.origin.replace(/\/$/, '');
       }
     }
   } catch (e) {}
-  // дефолт для продакшена
-  return 'https://trun.tmashop.ru/api';
+  // дефолт для продакшена — только origin, без /api
+  return 'https://trun.tmashop.ru';
 })();
 // ====== УТИЛИТЫ/DOM ===========================================================
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -427,8 +427,8 @@ applyThemeFromTelegram();
 
 // ============ ДАННЫЕ ТОВАРОВ ================
 // Надёжный base для API: берём из __API_URL / window.API_BASE, иначе дефолт
-const PRODUCTS_URL = API_BASE ? new URL('/products', API_BASE).toString() : '';
-const CREATE_URL   = API_BASE ? new URL('/product',  API_BASE).toString() : '';
+const PRODUCTS_URL = API_BASE ? new URL('/api/products', API_BASE).toString() : '';
+const CREATE_URL   = API_BASE ? new URL('/api/product',  API_BASE).toString() : '';
 let PRODUCTS = [];
 const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
@@ -501,7 +501,7 @@ async function saveProductToServer(product){
   try{
     const init_data = window.Telegram?.WebApp?.initData || '';
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
-    const url = new URL('/products', API_BASE).toString();
+    const url = new URL('/api/products', API_BASE).toString();
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -1143,7 +1143,7 @@ async function ensureAdminButton(){
   }
 
   try {
-    const res = await fetch(new URL('/check_admin', API_BASE).toString(), {
+    const res = await fetch(new URL('/api/check_admin', API_BASE).toString(), {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
@@ -1280,7 +1280,7 @@ function openAdminEdit(id){
         if (typeof imgObj === 'string') body.path = imgObj;
         else { body.public_id = imgObj.public_id || imgObj.path || null; body.path = imgObj.url || null; }
         try {
-          const res = await fetch(new URL('/images', API_BASE).toString(), {
+          const res = await fetch(new URL('/api/images', API_BASE).toString(), {
             method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
           });
           const j = await res.json().catch(()=>({ok:false}));
@@ -1335,7 +1335,7 @@ function openAdminEdit(id){
       fd.append('cardId', cardId);
 
       try {
-        const res = await fetch(new URL('/upload-image', API_BASE).toString(), { method:'POST', body: fd });
+        const res = await fetch(new URL('/api/upload-image', API_BASE).toString(), { method:'POST', body: fd });
         const j = await res.json().catch(()=>({ok:false}));
         if (j.ok) {
           const obj = (j.url || j.path) ? { url: j.url || j.path, public_id: j.path } : (j.path || j.url);
@@ -1372,7 +1372,7 @@ function openAdminEdit(id){
     const init_data = window.Telegram?.WebApp?.initData || '';
 
     try {
-      const url = new URL('/products', API_BASE).toString();
+      const url = new URL('/api/products', API_BASE).toString();
       const res = await fetch(url, {
         method: 'POST',
         headers: {
