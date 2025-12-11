@@ -364,9 +364,11 @@ if (requestForm) requestForm.addEventListener('submit', (e) => {
 if (isInTelegram()) {
   try { tg.ready(); } catch {}
   try { tg.expand(); } catch {}
-  usernameSlot.textContent = tg.initDataUnsafe?.user?.username
-    ? `@${tg.initDataUnsafe.user.username}`
-    : 'без username';
+  if (usernameSlot) {
+    usernameSlot.textContent = tg.initDataUnsafe?.user?.username
+      ? `@${tg.initDataUnsafe.user.username}`
+      : 'без username';
+  }
   // keep local unified nav hidden initially; we will manage it centrally
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
   try { tg.onEvent('themeChanged', applyThemeFromTelegram); } catch {}
