@@ -57,7 +57,7 @@ let requestContext = null;
 function currentImage(p) {
   const arr = Array.isArray(p?.imgs) ? p.imgs : [];
   if (!arr.length) return '';
-  const v = arr[0]; // Changed from currentImageIndex to 0
+  const v = arr[currentGalleryIndex] || arr[0];
   if (typeof v === 'string') return v;
   return v?.url || v?.path || '';
 }
@@ -116,9 +116,7 @@ async function openGallery(p) {
     galleryModal.style.zIndex = '1500';
     galleryModal.innerHTML = `
       <button id="galleryClose" class="absolute top-4 right-4 px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20">✕</button>
-      <button id="galleryPrev" class="absolute left-3 md:left-6 px-3 py-2 rounded bg-white/10 text-white hover:bg-white/20">‹</button>
       <img id="galleryImg" alt="" class="max-h-[92vh] max-w-[92vw] object-contain select-none">
-      <button id="galleryNext" class="absolute right-3 md:right-6 px-3 py-2 rounded bg-white/10 text-white hover:bg-white/20">›</button>
     `;
     document.body.appendChild(galleryModal);
   }
@@ -152,6 +150,10 @@ async function openGallery(p) {
     imgEl.alt = p.title || '';
   }
 
+  // Удаляем стрелки, если остались с прошлой версии
+  if (prevBtn) prevBtn.remove();
+  if (nextBtn) nextBtn.remove();
+
   // Обработчики кнопок
   if (closeBtn) {
     closeBtn.onclick = (ev) => {
@@ -161,26 +163,23 @@ async function openGallery(p) {
       updateUnifiedNav();
     };
   }
-  
-  if (prevBtn) {
-    prevBtn.onclick = async (ev) => {
-      ev?.stopPropagation();
-      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
-      if (!arr.length) return;
-      currentGalleryIndex = (currentGalleryIndex - 1 + arr.length) % arr.length;
-      await updateGalleryImage();
-    };
-  }
-  
-  if (nextBtn) {
-    nextBtn.onclick = async (ev) => {
-      ev?.stopPropagation();
-      const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+
+  // Свайпы по галерее для перелистывания фото
+  const arr = Array.isArray(p?.imgs) ? p.imgs : [];
+  detachSwipe(galleryModal);
+  attachSwipe(galleryModal, {
+    onLeft: async () => {
       if (!arr.length) return;
       currentGalleryIndex = (currentGalleryIndex + 1) % arr.length;
       await updateGalleryImage();
-    };
-  }
+    },
+    onRight: async () => {
+      if (!arr.length) return;
+      currentGalleryIndex = (currentGalleryIndex - 1 + arr.length) % arr.length;
+      await updateGalleryImage();
+    },
+    min: 20
+  });
 
   // Показываем галерею
   try {
@@ -593,16 +592,16 @@ function renderCards() {
     h3.textContent = p.title || '';
     h3.className = 'font-semibold';
 
-    const small = document.createElement('p');
-    small.textContent = p.short || '';
-    small.className = 'text-sm muted';
+    const short = document.createElement('p');
+    short.textContent = p.short || p.shortDescription || '';
+    short.className = 'text-sm muted';
 
     const more = document.createElement('a');
     more.href = `#/product/${p.id}`;
     more.textContent = 'Подробнее';
     more.className = 'link text-sm';
 
-    body.append(h3, small, more);
+    body.append(h3, short, more);
     if (window.__isAdmin) {
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
@@ -958,7 +957,7 @@ function showDetail(productId){
     tn.className = 'w-20 h-12 object-cover rounded cursor-pointer border';
     tn.onclick = async () => {
       currentGalleryIndex = idx;
-      openGallery(p);
+      await setDetailVisual(p);
     };
     galleryRoot.appendChild(tn);
   });
@@ -1003,24 +1002,12 @@ function showDetail(productId){
   switchViews(listView, detailView);
   detailView.classList.remove('hidden');
 
-  // Вставить две кнопки (если карточек больше 1)
-  // Сначала удалить прошлые:
+  // Удаляем старые стрелки (если остались) и оставляем только свайпы
   const oldPrev = detailView.querySelector('.carousel-prev');
   const oldNext = detailView.querySelector('.carousel-next');
   if (oldPrev) oldPrev.remove();
   if (oldNext) oldNext.remove();
-  if (PRODUCTS.length > 1) {
-    const prevBtn = document.createElement('button');
-    prevBtn.textContent = '←';
-    prevBtn.className = 'carousel-prev absolute left-2 top-1/2 -translate-y-1/2 z-20 px-3 py-2 rounded bg-white/20 text-black hover:bg-white/40';
-    prevBtn.onclick = (e) => { e.stopPropagation(); showPrevCard(); };
-    detailView.appendChild(prevBtn);
-    const nextBtn = document.createElement('button');
-    nextBtn.textContent = '→';
-    nextBtn.className = 'carousel-next absolute right-2 top-1/2 -translate-y-1/2 z-20 px-3 py-2 rounded bg-white/20 text-black hover:bg-white/40';
-    nextBtn.onclick = (e) => { e.stopPropagation(); showNextCard(); };
-    detailView.appendChild(nextBtn);
-  }
+
   // Повесить свайпы для detailView (переключение карточек)
   detachSwipe(detailView);
   attachSwipe(detailView, { onLeft: showNextCard, onRight: showPrevCard, min: 24 });
