@@ -541,7 +541,7 @@ async function deleteProductOnServer(id){
   try{
     const init_data = window.Telegram?.WebApp?.initData || '';
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
-    const res = await fetch(new URL(`/products/${encodeURIComponent(id)}`, API_BASE).toString(), {
+    const res = await fetch(new URL(`/api/products/${encodeURIComponent(id)}`, API_BASE).toString(), {
       method:'DELETE',
       headers:{'Content-Type':'application/json', 'Telegram-Init-Data': init_data},
       body: JSON.stringify({ init_data, init_data_unsafe })
