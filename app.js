@@ -15,6 +15,27 @@ const API_BASE = (() => {
   // дефолт для продакшена — только origin, без /api
   return 'https://trun.tmashop.ru';
 })();
+
+// Upload image helper: send file as multipart/form-data to backend
+async function uploadImage(file) {
+  const fd = new FormData();
+  fd.append('image', file);
+
+  const res = await fetch(`${API_BASE}/api/upload-image`, {
+    method: 'POST',
+    body: fd,
+    mode: 'cors'
+  });
+
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (e) {}
+
+  if (!res.ok) {
+    throw new Error((data && data.error) || `Upload failed: ${res.status} ${text.slice(0,200)}`);
+  }
+  return data; // expected { ok:true, url: '...' }
+}
 // ====== УТИЛИТЫ/DOM ===========================================================
 const $ = (sel, root = document) => root.querySelector(sel);
 const listView = $('#listView');
@@ -522,7 +543,7 @@ async function deleteProductOnServer(id){
     const init_data_unsafe = window.Telegram?.WebApp?.initDataUnsafe || null;
     const res = await fetch(new URL(`/products/${encodeURIComponent(id)}`, API_BASE).toString(), {
       method:'DELETE',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json', 'Telegram-Init-Data': init_data},
       body: JSON.stringify({ init_data, init_data_unsafe })
     });
     return await res.json();
@@ -1262,7 +1283,7 @@ function openAdminEdit(id){
         else { body.public_id = imgObj.public_id || imgObj.path || null; body.path = imgObj.url || null; }
         try {
           const res = await fetch(new URL('/api/images', API_BASE).toString(), {
-            method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+            method:'DELETE', headers:{'Content-Type':'application/json', 'Telegram-Init-Data': init_data}, body: JSON.stringify(body)
           });
           const j = await res.json().catch(()=>({ok:false}));
           if (j.ok) { imgs.splice(idx,1); renderGallery(); toast('Изображение удалено'); }
