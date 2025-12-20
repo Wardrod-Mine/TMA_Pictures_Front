@@ -760,6 +760,11 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
 
   try {
     sendToBot(payload);
+    // Если пользователь хочет — отправляем копию разработчику (если настроен webhook)
+    try {
+      const sendToDev = document.getElementById('sendToDev')?.checked;
+      if (sendToDev) forwardToDeveloper && forwardToDeveloper(payload);
+    } catch (e) { console.warn('forwardToDeveloper error', e); }
     tg?.HapticFeedback?.notificationOccurred?.('success');
     toast('Заявка отправлена');
     closeConsult();
@@ -770,6 +775,41 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
   }
   closeConsult();
 });
+
+// Отправка копии сообщения разработчику — если в окружении задана конфигурация
+async function forwardToDeveloper(payload) {
+  try {
+    // Ожидается, что в index.html или окружении может быть объявлена переменная
+    // window.__DEVELOPER_WEBHOOK — строка (URL) или массив строк (URL[])
+    const hook = window.__DEVELOPER_WEBHOOK;
+    if (!hook) {
+      console.debug('[forwardToDeveloper] __DEVELOPER_WEBHOOK not configured');
+      return;
+    }
+
+    const urls = Array.isArray(hook) ? hook : [hook];
+    const body = {
+      forwarded_at: new Date().toISOString(),
+      original: payload
+    };
+
+    for (const u of urls) {
+      try {
+        fetch(u, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }).then(res => {
+          if (!res.ok) console.warn('[forwardToDeveloper] non-ok response', res.status, u);
+        }).catch(err => console.error('[forwardToDeveloper] send error', err, u));
+      } catch (err) {
+        console.error('[forwardToDeveloper] error', err, u);
+      }
+    }
+  } catch (err) {
+    console.error('[forwardToDeveloper] fatal', err);
+  }
+}
 
 function goBack() {
   const adminView = !!document.getElementById('adminView');

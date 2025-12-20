@@ -101,7 +101,7 @@
     <div class="flex flex-wrap items-center gap-3 mb-3">
       <p class="text-sm muted">Выберите продукт: клик по картинке открывает подробности.</p>
       <button id="consultBtnMain" class="btn rounded-lg px-4 py-2 text-sm ml-auto">
-        Получить консультацию
+        Связаться с разработчиком
       </button>
       <button id="addCardBtn" class="rounded-lg px-4 py-2 text-sm border hidden" style="border-color:var(--sep); margin-left:8px;">Добавить карточку</button>
     </div>
@@ -130,7 +130,7 @@
     <div class="modal-backdrop absolute inset-0"></div>
     <div class="modal-panel relative max-w-md mx-auto mt-16 card rounded-xl overflow-hidden">
       <div class="p-4 border-b" style="border-color:var(--sep)">
-        <h3 class="text-lg font-semibold">Запрос консультации</h3>
+        <h3 class="text-lg font-semibold">Связаться с разработчиком</h3>
         <p class="text-xs muted" id="consultProductTitle"></p>
       </div>
       <form id="consultForm" class="p-4 space-y-3">
@@ -153,6 +153,9 @@
           <button type="button" id="consultCancel" class="rounded-lg px-4 py-2 text-sm border" style="border-color:var(--sep)">Отмена</button>
           <button type="submit" id="consultSubmit" class="btn rounded-lg px-4 py-2 text-sm">Отправить</button>
         </div>
+        <label class="block text-sm">
+          <input id="sendToDev" type="checkbox" checked style="margin-right:8px; vertical-align:middle;"> <span class="muted">Отправить также разработчику</span>
+        </label>
         <p class="text-xs muted">Данные отправятся боту через безопасный <code>sendData</code>.</p>
       </form>
     </div>
