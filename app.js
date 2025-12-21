@@ -18,6 +18,13 @@ const API_BASE = (() => {
 
 // Upload image helper: send file as multipart/form-data to backend
 async function uploadImage(file) {
+  // try to compress large images on client to reduce payload
+  try {
+    if (file && file.type && file.type.startsWith('image/')) {
+      file = await compressToJpeg(file, 1920, 0.85);
+    }
+  } catch (e) { console.warn('[uploadImage] compress failed', e); }
+
   const fd = new FormData();
   fd.append('image', file);
 
@@ -35,6 +42,38 @@ async function uploadImage(file) {
     throw new Error((data && data.error) || `Upload failed: ${res.status} ${text.slice(0,200)}`);
   }
   return data; // expected { ok:true, url: '...' }
+}
+
+// Client-side image compressor -> JPEG (FHD max)
+async function compressToJpeg(file, maxWidth = 1920, quality = 0.85) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = (e) => reject(e);
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const scale = Math.min(1, maxWidth / img.width);
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (!blob) return resolve(file);
+            const name = (file.name || 'img').replace(/\.[^/.]+$/, '.jpg');
+            const f = new File([blob], name, { type: 'image/jpeg' });
+            resolve(f);
+          }, 'image/jpeg', quality);
+        } catch (e) { resolve(file); }
+      };
+      img.onerror = () => resolve(file);
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 // ====== УТИЛИТЫ/DOM ===========================================================
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1373,11 +1412,23 @@ function openAdminEdit(id){
 
     for (const file of selectedFiles) {
       const fd = new FormData();
-      fd.append('image', file);
+      let toSend = file;
+      try {
+        if (file && file.type && file.type.startsWith('image/')) {
+          toSend = await compressToJpeg(file, 1920, 0.85);
+        }
+      } catch (e) { console.warn('[uploadSelectedFiles] compress failed', e); }
+
+      fd.append('image', toSend, toSend.name || file.name);
       fd.append('cardId', cardId);
 
       try {
         const res = await fetch(new URL('/api/upload-image', API_BASE).toString(), { method:'POST', body: fd });
+        if (res.status === 413) {
+          toast('Файл слишком большой. Уменьшите разрешение изображения и попробуйте снова.');
+          console.warn('upload failed: 413 Request Entity Too Large');
+          break; // stop uploading remaining files
+        }
         const j = await res.json().catch(()=>({ok:false}));
         if (j.ok) {
           const obj = (j.url || j.path) ? { url: j.url || j.path, public_id: j.path } : (j.path || j.url);
