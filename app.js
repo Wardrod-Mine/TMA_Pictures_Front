@@ -727,11 +727,20 @@ function prepareSend(product, action, viaMainButton = false) {
   const payload = {
     v: 1,
     type: 'lead',
-    action,
-    product: { id: product.id, title: product.title },
-    selected: product.title, 
+    action: 'consult',
+    product: consultContext ? { id: consultContext.id, title: consultContext.title } : null,
+    name: cName.value.trim() || null,
+    contact, 
+    message: cMsg.value.trim() || null,
+
+    // добавляем Telegram username (как у тебя уже сделано в send_request_form)
+    include_username: Boolean(tg?.initDataUnsafe?.user?.username),
+    username: tg?.initDataUnsafe?.user?.username || null,
+    from: tg?.initDataUnsafe?.user || null,
+
     at: new Date().toISOString()
   };
+
 
   console.log('[buyBtn] click. payload ->', payload);
 
