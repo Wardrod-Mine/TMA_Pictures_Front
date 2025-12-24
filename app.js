@@ -344,7 +344,6 @@ function closeRequest(){
 function modalShow(el){
   el.classList.remove('hidden');
   requestAnimationFrame(()=> el.classList.add('show'));
-  // update unified nav after modal opens
   setTimeout(()=> { try { if (typeof updateUnifiedNav === 'function') updateUnifiedNav(); } catch {} }, 10);
 }
 function modalHide(el){
@@ -436,7 +435,6 @@ if (isInTelegram()) {
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
 }
 
-
 async function sendToBot(payload) {
   const API = API_BASE;
   try {
@@ -444,7 +442,7 @@ async function sendToBot(payload) {
 
     if (!API) throw new Error('API_URL не задан');
 
-    const res = await fetch(`${API}/lead`, {
+    const res = await fetch(`${API}/api/lead`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
