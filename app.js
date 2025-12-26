@@ -2,23 +2,18 @@
 const API_BASE = (() => {
   try {
     if (typeof window !== 'undefined') {
-      // если уже задано где-то снаружи (index.html) — используем его
       if (typeof window.__API_URL === 'string' && window.__API_URL.trim()) {
         return window.__API_URL.replace(/\/$/, '');
       }
-      // локальная разработка: ходим напрямую на порт/домен бэка, путь /api добавляем в new URL
       if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         return location.origin.replace(/\/$/, '');
       }
     }
   } catch (e) {}
-  // дефолт для продакшена — только origin, без /api
   return 'https://trun.tmashop.ru';
 })();
 
-// Upload image helper: send file as multipart/form-data to backend
 async function uploadImage(file) {
-  // try to compress large images on client to reduce payload
   try {
     if (file && file.type && file.type.startsWith('image/')) {
       file = await compressToJpeg(file, 1920, 0.85);
@@ -41,10 +36,9 @@ async function uploadImage(file) {
   if (!res.ok) {
     throw new Error((data && data.error) || `Upload failed: ${res.status} ${text.slice(0,200)}`);
   }
-  return data; // expected { ok:true, url: '...' }
+  return data; 
 }
 
-// Client-side image compressor -> JPEG (FHD max)
 async function compressToJpeg(file, maxWidth = 1920, quality = 0.85) {
   if (!file || !file.type || !file.type.startsWith('image/')) return file;
   return await new Promise((resolve, reject) => {
@@ -156,12 +150,10 @@ async function openGallery(p) {
     return;
   }
 
-  // Получаем или создаем модальное окно галереи
   if (!galleryModal) {
     galleryModal = document.getElementById('galleryModal');
   }
 
-  // Если галереи нет в DOM, создаем fallback
   if (!galleryModal) {
     console.debug('[openGallery] galleryModal missing, creating fallback modal');
     galleryModal = document.createElement('div');
@@ -241,18 +233,13 @@ async function openGallery(p) {
     min: 20
   });
 
-  // Показываем галерею
   try {
     galleryModal.classList.remove('hidden');
     galleryModal.style.display = 'flex';
   } catch(e) {
     console.error('[openGallery] error showing modal', e);
   }
-  
-  // Обновляем изображение
   await updateGalleryImage();
-  
-  // Обновляем навигацию
   setTimeout(() => updateUnifiedNav(), 10);
 }
 
@@ -282,7 +269,6 @@ function toastOncePer30s(msg) {
 // Универсальный свайп-лисенер
 function attachSwipe(el, { onLeft, onRight, min = 30 }) {
   if (!el) return;
-  // Prevent attaching listeners multiple times to the same element
   if (el.__swipeAttached) return;
   el.__swipeAttached = true;
 
@@ -312,11 +298,9 @@ function attachSwipe(el, { onLeft, onRight, min = 30 }) {
   el.addEventListener('touchmove', onTouchMove, { passive: true });
   el.addEventListener('touchend', onTouchEnd, { passive: true });
 
-  // store handlers so they can be removed later if needed
   el.__swipeHandlers = { onTouchStart, onTouchMove, onTouchEnd };
 }
 
-// Анимация контейнера карточки (вход/выход)
 function animateCardEnter(container) {
   container.classList.add('swipe-enter');
   void container.offsetWidth;
@@ -409,6 +393,13 @@ if (requestForm) requestForm.addEventListener('submit', (e) => {
 
   try {
     sendToBot(payload);
+    // Отслеживание отправки заявки в Яндекс Метрике
+    if (window.ym) {
+      window.ym(105890583, 'reachGoal', 'form_submit', {
+        service: serviceTitle,
+        action: 'send_request_form'
+      });
+    }
     tg?.HapticFeedback?.notificationOccurred?.('success');
     toast('Заявка отправлена');
     closeRequest();
@@ -428,7 +419,6 @@ if (isInTelegram()) {
       ? `@${tg.initDataUnsafe.user.username}`
       : 'без username';
   }
-  // keep local unified nav hidden initially; we will manage it centrally
   if (unifiedNavBtn) unifiedNavBtn.classList.add('hidden');
   try { tg.onEvent('themeChanged', applyThemeFromTelegram); } catch {}
 } else {
@@ -481,10 +471,7 @@ function applyThemeFromTelegram() {
 }
 applyThemeFromTelegram();
 
-// Cart functionality removed (add-to-cart / cart) per request
-
 // ============ ДАННЫЕ ТОВАРОВ ================
-// Надёжный base для API: берём из __API_URL / window.API_BASE, иначе дефолт
 const PRODUCTS_URL = API_BASE ? new URL('/api/products', API_BASE).toString() : '';
 const CREATE_URL   = API_BASE ? new URL('/api/product',  API_BASE).toString() : '';
 let PRODUCTS = [];
@@ -492,7 +479,6 @@ const defaultProducts = [
   { id: 'book_alphalife', title: 'ALPHALIFE Sasha Trun', imgs: ['./assets/cards/book1.jpg'], short: 'Книга от художника Sasha Trun — коллекция букв латинского алфавита', price: '10 000₽', link:'', long:['A book...'], bullets:['Фото: 1 основное (обложка книги)'], cta:'Свяжитесь для уточнения заказа' }
 ];
 
-// fallback placeholder image (data URL SVG) — used when no image available
 const PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="100%" height="100%" fill="%23161b22"/><text x="50%" y="50%" fill="%238b949e" dy=".3em" font-family="Arial" font-size="20" text-anchor="middle">Нет изображения</text></svg>';
 
 const CACHE_KEY_PRODUCTS = 'tma.PRODUCTS.v1';
@@ -524,11 +510,9 @@ async function fetchWithRetry(url, opts = {}, retries = 2, delay = 700){
 }
 
 async function loadProducts() {
-  // 0) показать кэш мгновенно
   const cached = loadProductsCache();
   if (Array.isArray(cached) && cached.length) { PRODUCTS = cached; renderCards?.(); }
 
-  // 1) без бэка – используем дефолт
   if (!API_BASE || !PRODUCTS_URL) {
     if (!PRODUCTS.length && typeof defaultProducts !== 'undefined') {
       PRODUCTS = defaultProducts;
@@ -537,7 +521,6 @@ async function loadProducts() {
     return;
   }
 
-  // 2) онлайн-обновление
   try {
     const res = await fetchWithRetry(PRODUCTS_URL, { mode: 'cors' }, 2, 700);
     const json = await res.json();
@@ -668,7 +651,6 @@ function renderCards() {
       editBtn.style.borderColor = 'var(--sep)';
       editBtn.onclick = (e) => {
         e.preventDefault();
-        // open admin view and then open editor for this product
         location.hash = '#/admin';
         setTimeout(() => openAdminEdit(p.id), 30);
       };
@@ -698,7 +680,6 @@ function renderCards() {
     card.append(link, body);
     cardsRoot.appendChild(card);
   });
-  // Проверка состояния после рендера карточек
   updateUnifiedNav();
 }
 
@@ -710,14 +691,14 @@ function switchViews(hideEl, showEl) {
       showEl.classList.remove('hidden'); showEl.classList.add('view-enter');
       setTimeout(() => {
         showEl.classList.remove('view-enter');
-        updateUnifiedNav(); // Проверка состояния после переключения вида
+        updateUnifiedNav(); 
       }, 220);
     }, 180);
   } else {
     showEl.classList.remove('hidden'); showEl.classList.add('view-enter');
     setTimeout(() => {
       showEl.classList.remove('view-enter');
-      updateUnifiedNav(); // Проверка состояния после переключения вида
+      updateUnifiedNav(); 
     }, 220);
   }
 }
@@ -733,7 +714,6 @@ function prepareSend(product, action, viaMainButton = false) {
     contact, 
     message: cMsg.value.trim() || null,
 
-    // добавляем Telegram username (как у тебя уже сделано в send_request_form)
     include_username: Boolean(tg?.initDataUnsafe?.user?.username),
     username: tg?.initDataUnsafe?.user?.username || null,
     from: tg?.initDataUnsafe?.user || null,
@@ -758,10 +738,6 @@ function prepareSend(product, action, viaMainButton = false) {
   }
 }
 
-// Корзина
-// addToCart / cart send removed
-
-// Консультация
 let consultContext = null;
 function openConsult(product){
   consultContext = product || null;
@@ -806,7 +782,6 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
 
   try {
     sendToBot(payload);
-    // Если пользователь хочет — отправляем копию разработчику (если настроен webhook)
     try {
       const sendToDev = document.getElementById('sendToDev')?.checked;
       if (sendToDev) forwardToDeveloper && forwardToDeveloper(payload);
@@ -825,8 +800,6 @@ if (consultForm) consultForm.addEventListener('submit', (e) => {
 // Отправка копии сообщения разработчику — если в окружении задана конфигурация
 async function forwardToDeveloper(payload) {
   try {
-    // Ожидается, что в index.html или окружении может быть объявлена переменная
-    // window.__DEVELOPER_WEBHOOK — строка (URL) или массив строк (URL[])
     const hook = window.__DEVELOPER_WEBHOOK;
     if (!hook) {
       console.debug('[forwardToDeveloper] __DEVELOPER_WEBHOOK not configured');
@@ -859,7 +832,6 @@ async function forwardToDeveloper(payload) {
 
 function goBack() {
   const adminView = !!document.getElementById('adminView');
-  // Галерея открыта, если она существует, не имеет класса hidden и display не none
   const galleryOpen = !!(galleryModal && 
     !galleryModal.classList.contains('hidden') && 
     galleryModal.style.display !== 'none' &&
@@ -868,9 +840,7 @@ function goBack() {
   const requestOpen = !!(requestModal && !requestModal.classList.contains('hidden'));
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
 
-  // Схема: главное меню > карточка > галерея фото в карточке
   if (galleryOpen) {
-    // Если открыта галерея → закрыть галерею (вернуться к карточке)
     galleryModal.classList.add('hidden');
     galleryModal.style.display = 'none';
     updateUnifiedNav();
@@ -897,26 +867,21 @@ function goBack() {
   }
 
   if (detailVisible) {
-    // Если открыта карточка → вернуться к списку
     showList();
     return;
   }
 
-  // Если открыт список → ничего не делаем (кнопка скрыта)
 }
 
 function updateUnifiedNav() {
   if (!unifiedNavBtn) return;
   
-  // Throttle для избежания избыточных вызовов
   if (!window.__lastUpdateUnifiedNavTs) window.__lastUpdateUnifiedNavTs = 0;
   const now = Date.now();
   if (now - window.__lastUpdateUnifiedNavTs < 100) return;
   window.__lastUpdateUnifiedNavTs = now;
 
-  // Определение текущего состояния приложения
   const adminView = !!document.getElementById('adminView');
-  // Галерея открыта, если она существует, не имеет класса hidden и display не none
   const galleryOpen = !!(galleryModal && 
     !galleryModal.classList.contains('hidden') && 
     galleryModal.style.display !== 'none' &&
@@ -926,7 +891,6 @@ function updateUnifiedNav() {
   const detailVisible = !!(detailView && !detailView.classList.contains('hidden'));
   const listVisible = !!(listView && !listView.classList.contains('hidden'));
 
-  // Не показывать unifiedNavBtn в админке
   if (adminView) {
     unifiedNavBtn.classList.add('hidden');
     unifiedNavBtn.onclick = null;
@@ -950,30 +914,18 @@ function updateUnifiedNav() {
 async function nextImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
-  // currentImageIndex = (currentImageIndex + 1) % imgs.length; // Removed
   await setDetailVisual(p, 'left');
-  // Проверка состояния после изменения изображения
   updateUnifiedNav();
 }
 
 async function prevImage(p) {
   const imgs = Array.isArray(p.imgs) ? p.imgs : [];
   if (!imgs.length) return;
-  // currentImageIndex = (currentImageIndex - 1 + imgs.length) % imgs.length; // Removed
   await setDetailVisual(p, 'right');
-  // Проверка состояния после изменения изображения
   updateUnifiedNav();
 }
 
 function showList() {
-  // Сброс индексов для карусели и swipe
-  // currentIndex = 0; // Removed
-  // currentImageIndex = 0; // Removed
-
-  // Удаление swipe обработчиков, если уже есть
-  // detachSwipe(detailView); // Removed
-  // detachSwipe(detailImg); // Removed
-
   switchViews(detailView, listView);
   updateUnifiedNav();
 }
@@ -994,7 +946,6 @@ function showNextCard() { showDetailByIndex(currentCardIndex + 1); }
 
 function attachSwipe(el, { onLeft, onRight, min = 30 }) {
   if (!el) return;
-  // Prevent attaching listeners multiple times to the same element
   if (el.__swipeAttached) return;
   el.__swipeAttached = true;
   let x0 = 0, y0 = 0, dx = 0, dy = 0, active = false;
@@ -1037,8 +988,6 @@ function showDetail(productId){
   let idx = PRODUCTS.findIndex(x => x.id === productId);
   if (idx === -1) return;
   currentCardIndex = idx;
-  // currentIndex = Math.max(0, PRODUCTS.findIndex(x => x.id === productId)); // Removed
-  // currentImageIndex = 0; // Removed
   if (!p) return showList();
 
   const img = currentImage(p);
@@ -1101,7 +1050,6 @@ function showDetail(productId){
         detailLong.appendChild(el);
       });
   }
-  // unified nav will be updated after the final switchViews below
   if (consultBtn) consultBtn.onclick = () => openConsult(p);
   buyBtn.textContent = 'Отправить заявку';
   buyBtn.onclick = () => openRequest(p);
@@ -1109,18 +1057,15 @@ function showDetail(productId){
   switchViews(listView, detailView);
   detailView.classList.remove('hidden');
 
-  // Удаляем старые стрелки (если остались) и оставляем только свайпы
   const oldPrev = detailView.querySelector('.carousel-prev');
   const oldNext = detailView.querySelector('.carousel-next');
   if (oldPrev) oldPrev.remove();
   if (oldNext) oldNext.remove();
 
-  // Повесить свайпы для detailView (переключение карточек)
   detachSwipe(detailView);
   attachSwipe(detailView, { onLeft: showNextCard, onRight: showPrevCard, min: 24 });
 }
 
-// Детачер свайпов для чистоты
 function detachSwipe(el) {
   if (!el || !el.__swipeHandlers) return;
   const { onTouchStart, onTouchMove, onTouchEnd } = el.__swipeHandlers;
@@ -1146,7 +1091,6 @@ function handleStartParam(raw){
 }
 
 (async function initApp(){
-  // Инициализация галереи после загрузки DOM
   if (!galleryModal) {
     galleryModal = document.getElementById('galleryModal');
   }
@@ -1158,6 +1102,14 @@ function handleStartParam(raw){
     if (!a) return;
     e.preventDefault();
     const id = a.getAttribute('href').replace('#/product/','');
+    const product = PRODUCTS.find(p => p.id === id);
+    // Отслеживание клика по карточке в Яндекс Метрике
+    if (window.ym && product) {
+      window.ym(105890583, 'reachGoal', 'card_click', {
+        product_id: product.id,
+        product_title: product.title
+      });
+    }
     showDetail(id);
   });
   handleStartParam(getStartParam());
@@ -1189,7 +1141,6 @@ function router(){
   } else if (hash === '#/add') {
     showAdmin();
   }
-  // Проверка состояния после роутинга (на случай если функции не вызвали updateUnifiedNav)
   updateUnifiedNav();
 }
 
@@ -1246,7 +1197,6 @@ async function ensureAdminButton(){
       hide();
       if ($add) $add.classList.add('hidden');
     }
-    // если мы админ — перерендерим карточки чтобы показать кнопки edit/delete
     if (window.__isAdmin) {
       try { renderCards(); } catch(e) { console.warn('renderCards failed after admin check', e); }
     }
@@ -1319,7 +1269,7 @@ function openAdminEdit(id){
   if (descInput) descInput.placeholder = 'Плотный холст 350 г/м², стойкие пигменты. Индивидуальная корректировка по фото.';
 
   // --- загрузка серии фото: состояние и UI
-  const selectedFiles = [];                  // File[]
+  const selectedFiles = [];               
   const gallery   = root.querySelector('#adminGallery');
   const fileInput = form.querySelector('#imgUpload');
   const pickBtn   = form.querySelector('#imgPickBtn');
@@ -1434,7 +1384,7 @@ function openAdminEdit(id){
         if (res.status === 413) {
           toast('Файл слишком большой. Уменьшите разрешение изображения и попробуйте снова.');
           console.warn('upload failed: 413 Request Entity Too Large');
-          break; // stop uploading remaining files
+          break; 
         }
         const j = await res.json().catch(()=>({ok:false}));
         if (j.ok) {
@@ -1500,12 +1450,10 @@ function openAdminEdit(id){
             : Array.isArray(payload.imgs) ? payload.imgs : []
       };
 
-      // оптимистично в список + кэш
       PRODUCTS = [base, ...PRODUCTS.filter(x => x.id !== base.id)];
       saveProductsCache(PRODUCTS);
       renderCards?.();
 
-      // закрыть форму и перейти на карточку
       toast('Сохранено');
       const view = document.getElementById('adminView');
       if (view) view.remove();
@@ -1515,7 +1463,6 @@ function openAdminEdit(id){
 
       location.hash = `#/product/${base.id}`;
 
-      // фоновая синхронизация: если сервер вернёт «настоящий» id — переоткроем
       loadProducts().then(() => {
         const real = PRODUCTS.find(x =>
           (x.title||'') === (base.title||'') &&
@@ -1549,7 +1496,6 @@ function renderAdmin(){
   const view = document.createElement('main');
   view.id = 'adminView';
   view.className = 'max-w-5xl mx-auto p-4 fade-in';
-  // Убеждаемся, что админ-панель видна
   view.style.display = 'block';
   view.innerHTML = `
     <div class="flex items-center gap-3 mb-3">
@@ -1562,14 +1508,11 @@ function renderAdmin(){
 }
 
 function showAdmin(){
-  // Скрываем все основные виды
   if (listView) listView.classList.add('hidden');
   if (detailView) detailView.classList.add('hidden');
   
-  // Удаляем существующую админ-панель, если есть
   const exist = document.getElementById('adminView');
   if (exist) exist.remove();
-  // admin button removed; nothing to clean up here
   renderAdmin();
   if (location.hash === '#/add') {
     try { openAdminEdit(null); } catch(e) { console.warn('openAdminEdit failed', e); }
