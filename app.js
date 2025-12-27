@@ -394,8 +394,9 @@ if (requestForm) requestForm.addEventListener('submit', (e) => {
   try {
     sendToBot(payload);
     // Отслеживание отправки заявки в Яндекс Метрике
+    // Previous ID: 105890583 (для возврата)
     if (window.ym) {
-      window.ym(105890583, 'reachGoal', 'form_submit', {
+      window.ym(106051749, 'reachGoal', 'form_submit', {
         service: serviceTitle,
         action: 'send_request_form'
       });
@@ -1104,8 +1105,9 @@ function handleStartParam(raw){
     const id = a.getAttribute('href').replace('#/product/','');
     const product = PRODUCTS.find(p => p.id === id);
     // Отслеживание клика по карточке в Яндекс Метрике
+    // Previous ID: 105890583 (для возврата)
     if (window.ym && product) {
-      window.ym(105890583, 'reachGoal', 'card_click', {
+      window.ym(106051749, 'reachGoal', 'card_click', {
         product_id: product.id,
         product_title: product.title
       });
